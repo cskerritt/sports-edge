@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}{{ contract.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-xs text-slate-500">
+    <a href="{% url 'markets:list' %}" class="hover:text-slate-300 transition-colors">Markets</a>
+    <span>/</span>
+    <span class="text-slate-300 truncate max-w-xs">{{ contract.title }}</span>
+  </nav>
+
+  <!-- Contract header -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-3 mb-3 flex-wrap">
+          <span class="px-2 py-0.5 rounded text-xs font-bold
+            {% if contract.sport == 'NFL' %}bg-blue-900/60 text-blue-300
+            {% elif contract.sport == 'NBA' %}bg-orange-900/60 text-orange-300
+            {% elif contract.sport == 'NHL' %}bg-cyan-900/60 text-cyan-300
+            {% elif contract.sport == 'MLB' %}bg-red-900/60 text-red-300
+            {% elif contract.sport == 'Soccer' %}bg-green-900/60 text-green-300
+            {% else %}bg-slate-700 text-slate-300{% endif %}">
+            {% if contract.sport == 'NFL' %}🏈{% elif contract.sport == 'NBA' %}🏀{% elif contract.sport == 'NHL' %}🏒{% elif contract.sport == 'MLB' %}⚾{% elif contract.sport == 'Soccer' %}⚽{% endif %}
+            {{ contract.sport }}
+          </span>
+          <span class="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-300">{{ contract.contract_type|default:"WIN" }}</span>
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold
+            {% if contract.is_active %}bg-green-900/60 text-green-300
+            {% elif contract.is_resolved %}bg-slate-700 text-slate-400
+            {% else %}bg-amber-900/60 text-amber-300{% endif %}">
+            {% if contract.is_active %}ACTIVE{% elif contract.is_resolved %}RESOLVED{% else %}INACTIVE{% endif %}
+          </span>
+        </div>
+        <h1 class="text-xl font-bold text-white leading-snug">{{ contract.title }}</h1>
+        {% if contract.game %}
+        <p class="text-slate-400 text-sm mt-1">
+          {{ contract.game.away_team }} @ {{ contract.game.home_team }} &bull;
+          <a href="{% url 'dashboard:game_detail' contract.game.pk %}" class="text-blue-400 hover:text-blue-300 transition-colors">
+            {{ contract.game.game_time|date:"M j, Y g:i A"|default:contract.game.game_date }}
+          </a>
+        </p>
+        {% endif %}
+      </div>
+
+      <!-- YES price big display -->
+      <div class="text-right shrink-0">
+        <p class="text-xs text-slate-500 mb-1">YES Price</p>
+        {% if latest_price %}
+        <p class="text-4xl font-bold font-mono text-white">${{ latest_price.yes_price|floatformat:2 }}</p>
+        {% widthratio latest_price.yes_price 1 100 as implied_pct %}
+        <p class="text-xs text-slate-500 mt-1">Implied: {{ implied_pct }}%</p>
+        {% else %}
+        <p class="text-4xl font-bold font-mono text-white">$—</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <p class="text-xs text-slate-400 uppercase tracking-wider mb-1">Model Probability</p>
+      {% if open_alert %}
+        {% widthratio open_alert.model_probability 1 100 as model_pct %}
+        <p class="text-2xl font-bold font-mono text-blue-300">{{ model_pct }}%</p>
+      {% else %}
+        <p class="text-2xl font-bold font-mono text-blue-300">—</p>
+      {% endif %}
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <p class="text-xs text-slate-400 uppercase tracking-wider mb-1">Market Implied</p>
+      {% if latest_price %}
+        {% widthratio latest_price.yes_price 1 100 as market_pct %}
+        <p class="text-2xl font-bold font-mono text-slate-300">{{ market_pct }}%</p>
+      {% else %}
+        <p class="text-2xl font-bold font-mono text-slate-300">—</p>
+      {% endif %}
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <p class="text-xs text-slate-400 uppercase tracking-wider mb-1">Edge</p>
+      {% if open_alert %}
+        <p class="text-2xl font-bold font-mono
+          {% if open_alert.edge_pct >= 5 %}text-green-400{% elif open_alert.edge_pct >= 3 %}text-amber-400{% elif open_alert.edge_pct > 0 %}text-slate-300{% else %}text-red-400{% endif %}">
+          {% if open_alert.edge_pct > 0 %}+{% endif %}{{ open_alert.edge_pct|floatformat:1 }}%
+        </p>
+      {% else %}
+        <p class="text-2xl font-bold font-mono text-slate-300">—</p>
+      {% endif %}
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <p class="text-xs text-slate-400 uppercase tracking-wider mb-1">Volume</p>
+      {% if latest_price and latest_price.volume_24h %}
+        <p class="text-2xl font-bold font-mono text-slate-300">{{ latest_price.volume_24h|floatformat:0 }}</p>
+      {% else %}
+        <p class="text-2xl font-bold font-mono text-slate-300">—</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Price history sparkline + prediction row -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Price History Sparkline (CSS-only) -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+      <h2 class="font-semibold text-white mb-4">Price History</h2>
+      {% if price_history %}
+      <div class="flex items-end gap-1 h-24">
+        {% for point in price_history %}
+        <div class="flex-1 relative group">
+          {% widthratio point.yes_price 1 100 as bar_height %}
+          <div class="w-full rounded-t transition-all bg-blue-500/50 hover:bg-blue-400"
+            style="height: {{ bar_height }}%;"
+            title="{{ point.fetched_at|date:'M j g:i A' }}: ${{ point.yes_price|floatformat:2 }}">
+          </div>
+          <!-- Tooltip -->
+          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 whitespace-nowrap z-10 pointer-events-none">
+            ${{ point.yes_price|floatformat:2 }}<br>
+            <span class="text-slate-500">{{ point.fetched_at|date:"M j g:i A" }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="flex justify-between text-xs text-slate-500 mt-2">
+        <span>{{ price_history.0.fetched_at|date:"M j" }}</span>
+        {% with last_price_item=price_history|last %}
+        <span>{{ last_price_item.fetched_at|date:"M j" }}</span>
+        {% endwith %}
+      </div>
+      {% else %}
+      <div class="h-24 flex items-center justify-center">
+        <!-- Placeholder sparkline bars -->
+        <div class="flex items-end gap-1 h-20 w-full opacity-20">
+          {% for h in "40,55,45,60,52,58,48,65,70,62,68,75,65,72,80"|split:"," %}
+          <div class="flex-1 bg-blue-500 rounded-t" style="height: {{ h }}%;"></div>
+          {% endfor %}
+        </div>
+      </div>
+      <p class="text-xs text-slate-600 text-center mt-2">No price history available</p>
+      {% endif %}
+    </div>
+
+    <!-- Linked game prediction -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+      <h2 class="font-semibold text-white mb-4">Model Prediction</h2>
+      {% if contract.game and prediction %}
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between text-xs text-slate-400 mb-1.5">
+            <span>{{ contract.game.away_team }}</span>
+            {% widthratio prediction.away_win_prob 1 100 as away_pct %}
+            <span class="font-mono font-bold {% if prediction.away_win_prob >= 0.5 %}text-green-400{% endif %}">
+              {{ away_pct }}%
+            </span>
+          </div>
+          <div class="h-3 bg-slate-700 rounded-full overflow-hidden">
+            <div class="h-full bg-blue-500 rounded-full" style="width: {{ away_pct }}%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs text-slate-400 mb-1.5">
+            <span>{{ contract.game.home_team }}</span>
+            {% widthratio prediction.home_win_prob 1 100 as home_pct %}
+            <span class="font-mono font-bold {% if prediction.home_win_prob >= 0.5 %}text-green-400{% endif %}">
+              {{ home_pct }}%
+            </span>
+          </div>
+          <div class="h-3 bg-slate-700 rounded-full overflow-hidden">
+            <div class="h-full bg-red-500 rounded-full" style="width: {{ home_pct }}%"></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-700/50">
+          <div>
+            <p class="text-xs text-slate-500">Predicted Spread</p>
+            <p class="font-mono font-semibold text-slate-200 mt-0.5">
+              {% if prediction.predicted_spread %}{% if prediction.predicted_spread > 0 %}+{% endif %}{{ prediction.predicted_spread|floatformat:1 }}{% else %}—{% endif %}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500">Predicted Total</p>
+            <p class="font-mono font-semibold text-slate-200 mt-0.5">{{ prediction.predicted_total|floatformat:1|default:"—" }}</p>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="py-8 text-center text-slate-500 text-sm">
+        <div class="text-3xl mb-2">🔮</div>
+        No prediction linked
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Alerts for this contract -->
+  {% if open_alert or resolved_alerts %}
+  <div class="bg-slate-800 border border-slate-700 rounded-xl">
+    <div class="px-5 py-4 border-b border-slate-700">
+      <h2 class="font-semibold text-white">Edge Alerts for this Contract</h2>
+    </div>
+    <div class="divide-y divide-slate-700/30">
+      {% if open_alert %}
+      <div class="px-5 py-4 flex items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="font-mono font-bold text-lg
+              {% if open_alert.edge_pct >= 5 %}text-green-400{% elif open_alert.edge_pct >= 3 %}text-amber-400{% else %}text-slate-300{% endif %}">
+              {% if open_alert.edge_pct > 0 %}+{% endif %}{{ open_alert.edge_pct|floatformat:1 }}%
+            </span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-900/60 text-green-300">
+              OPEN
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            {% widthratio open_alert.model_probability 1 100 as alert_model_pct %}
+            {% widthratio open_alert.market_probability 1 100 as alert_market_pct %}
+            Model: {{ alert_model_pct }}% &bull; Market: {{ alert_market_pct }}% &bull; Kelly: {{ open_alert.kelly_pct|floatformat:1 }}%
+          </p>
+          <p class="text-xs text-slate-600 mt-0.5">Created {{ open_alert.created_at|timesince }} ago</p>
+        </div>
+        <a href="{% url 'bankroll:log_bet' %}?alert={{ open_alert.pk }}"
+           class="shrink-0 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition-colors">
+          Log Bet
+        </a>
+      </div>
+      {% endif %}
+      {% for alert in resolved_alerts %}
+      <div class="px-5 py-4 flex items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="font-mono font-bold text-lg text-slate-500">
+              {% if alert.edge_pct > 0 %}+{% endif %}{{ alert.edge_pct|floatformat:1 }}%
+            </span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+              {% if alert.status == 'HIT' %}bg-green-900/60 text-green-300{% else %}bg-red-900/60 text-red-300{% endif %}">
+              {{ alert.status }}
+            </span>
+          </div>
+          <p class="text-xs text-slate-600 mt-0.5">Resolved {{ alert.resolved_at|timesince }} ago</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Log Bet CTA -->
+  {% if contract.is_active %}
+  <div class="flex justify-end">
+    <a href="{% url 'bankroll:log_bet' %}?contract={{ contract.pk }}"
+       class="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-xl transition-colors">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      Log a Bet on this Contract
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

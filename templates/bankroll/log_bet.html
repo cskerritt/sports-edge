@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Log Bet{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-xs text-slate-500 mb-6">
+    <a href="{% url 'bankroll:index' %}" class="hover:text-slate-300 transition-colors">Bankroll</a>
+    <span>/</span>
+    <span class="text-slate-300">Log Bet</span>
+  </nav>
+
+  <!-- Header -->
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Log a Bet</h1>
+    <p class="text-slate-400 text-sm mt-0.5">Record a prediction market position for tracking.</p>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-6"
+       x-data="{
+         side: '{{ form.side.value|default:'YES' }}',
+         amount: {{ form.amount.value|default:0 }},
+         entryPrice: {{ form.entry_price.value|default:0 }},
+         get shares() {
+           if (this.entryPrice > 0) return (this.amount / this.entryPrice).toFixed(2);
+           return '—';
+         },
+         get maxPayout() {
+           if (this.entryPrice > 0 && this.amount > 0) return (this.amount / this.entryPrice).toFixed(2);
+           return '—';
+         }
+       }">
+
+    <form method="post" action="{% url 'bankroll:log_bet' %}" class="space-y-5">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="px-4 py-3 bg-red-900/40 border border-red-700 rounded-xl text-sm text-red-300">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Contract search (optional) -->
+      <div>
+        <label for="{{ form.contract.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">
+          Contract <span class="text-slate-500 font-normal">(optional)</span>
+        </label>
+        <input type="text"
+               name="{{ form.contract.html_name }}"
+               id="{{ form.contract.id_for_label }}"
+               value="{{ form.contract.value|default:'' }}"
+               class="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-colors"
+               placeholder="Search contract title or leave blank..." />
+        {% if form.contract.errors %}
+        <p class="mt-1 text-xs text-red-400">{{ form.contract.errors|join:", " }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Sport + Description row -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label for="{{ form.sport.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">Sport</label>
+          <select name="{{ form.sport.html_name }}"
+                  id="{{ form.sport.id_for_label }}"
+                  class="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-green-500 transition-colors">
+            <option value="">— Select —</option>
+            <option value="NFL"    {% if form.sport.value == 'NFL'    %}selected{% endif %}>🏈 NFL</option>
+            <option value="NBA"    {% if form.sport.value == 'NBA'    %}selected{% endif %}>🏀 NBA</option>
+            <option value="NHL"    {% if form.sport.value == 'NHL'    %}selected{% endif %}>🏒 NHL</option>
+            <option value="MLB"    {% if form.sport.value == 'MLB'    %}selected{% endif %}>⚾ MLB</option>
+            <option value="Soccer" {% if form.sport.value == 'Soccer' %}selected{% endif %}>⚽ Soccer</option>
+          </select>
+          {% if form.sport.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ form.sport.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+        <div class="sm:col-span-2">
+          <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">Description</label>
+          <input type="text"
+                 name="{{ form.description.html_name }}"
+                 id="{{ form.description.id_for_label }}"
+                 value="{{ form.description.value|default:'' }}"
+                 class="w-full px-4 py-3 bg-slate-900 border {% if form.description.errors %}border-red-600{% else %}border-slate-600{% endif %} rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-colors"
+                 placeholder="e.g. Chiefs moneyline vs Raiders" />
+          {% if form.description.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ form.description.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- YES/NO toggle -->
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Side</label>
+        <div class="flex rounded-xl overflow-hidden border border-slate-600 w-fit">
+          <button type="button"
+                  @click="side = 'YES'"
+                  :class="side === 'YES' ? 'bg-green-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'"
+                  class="px-8 py-2.5 text-sm font-bold transition-colors">
+            YES
+          </button>
+          <button type="button"
+                  @click="side = 'NO'"
+                  :class="side === 'NO' ? 'bg-red-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'"
+                  class="px-8 py-2.5 text-sm font-bold transition-colors border-l border-slate-600">
+            NO
+          </button>
+        </div>
+        <input type="hidden" name="{{ form.side.html_name }}" :value="side" />
+      </div>
+
+      <!-- Amount + Entry price + Shares -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label for="{{ form.amount.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">Amount ($)</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+            <input type="number"
+                   name="{{ form.amount.html_name }}"
+                   id="{{ form.amount.id_for_label }}"
+                   x-model="amount"
+                   value="{{ form.amount.value|default:'' }}"
+                   step="0.01" min="0"
+                   class="w-full pl-7 pr-4 py-3 bg-slate-900 border {% if form.amount.errors %}border-red-600{% else %}border-slate-600{% endif %} rounded-xl text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-colors"
+                   placeholder="0.00" />
+          </div>
+          {% if form.amount.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ form.amount.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+        <div>
+          <label for="{{ form.entry_price.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">Entry Price ($)</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+            <input type="number"
+                   name="{{ form.entry_price.html_name }}"
+                   id="{{ form.entry_price.id_for_label }}"
+                   x-model="entryPrice"
+                   value="{{ form.entry_price.value|default:'' }}"
+                   step="0.01" min="0" max="1"
+                   class="w-full pl-7 pr-4 py-3 bg-slate-900 border {% if form.entry_price.errors %}border-red-600{% else %}border-slate-600{% endif %} rounded-xl text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-colors"
+                   placeholder="0.00–1.00" />
+          </div>
+          {% if form.entry_price.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ form.entry_price.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+        <!-- Auto-calculated shares -->
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1.5">Shares (auto)</label>
+          <div class="px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-slate-300 font-mono">
+            <span x-text="shares">—</span>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">Amount ÷ Entry Price</p>
+        </div>
+      </div>
+
+      <!-- Predicted edge -->
+      <div>
+        <label for="{{ form.predicted_edge.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">
+          Predicted Edge (%) <span class="text-slate-500 font-normal">(pre-filled from alert if applicable)</span>
+        </label>
+        <div class="relative">
+          <input type="number"
+                 name="{{ form.predicted_edge.html_name }}"
+                 id="{{ form.predicted_edge.id_for_label }}"
+                 value="{{ form.predicted_edge.value|default:'' }}"
+                 step="0.1"
+                 class="w-full px-4 py-3 pr-10 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-colors"
+                 placeholder="e.g. 7.5" />
+          <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">%</span>
+        </div>
+        {% if form.predicted_edge.errors %}
+        <p class="mt-1 text-xs text-red-400">{{ form.predicted_edge.errors|join:", " }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Notes -->
+      <div>
+        <label for="{{ form.notes.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">
+          Notes <span class="text-slate-500 font-normal">(optional)</span>
+        </label>
+        <textarea name="{{ form.notes.html_name }}"
+                  id="{{ form.notes.id_for_label }}"
+                  rows="3"
+                  class="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-colors resize-none"
+                  placeholder="Any reasoning, context, or reminders...">{{ form.notes.value|default:'' }}</textarea>
+      </div>
+
+      <!-- Summary preview -->
+      <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 text-sm">
+        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Bet Summary</p>
+        <div class="flex flex-wrap gap-x-6 gap-y-1">
+          <span class="text-slate-400">Side: <span class="font-bold" :class="side === 'YES' ? 'text-green-400' : 'text-red-400'" x-text="side">YES</span></span>
+          <span class="text-slate-400">Amount: <span class="text-white font-mono" x-text="amount > 0 ? '$' + parseFloat(amount).toFixed(2) : '—'">—</span></span>
+          <span class="text-slate-400">@ <span class="text-white font-mono" x-text="entryPrice > 0 ? '$' + parseFloat(entryPrice).toFixed(2) : '—'">—</span></span>
+          <span class="text-slate-400">Shares: <span class="text-white font-mono" x-text="shares">—</span></span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <a href="{% url 'bankroll:index' %}" class="px-5 py-2.5 text-sm text-slate-400 hover:text-white transition-colors">Cancel</a>
+        <button type="submit"
+                class="px-6 py-2.5 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-green-500/40">
+          Log Bet
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}

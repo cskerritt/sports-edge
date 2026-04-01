@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Bet Detail{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-xs text-slate-500">
+    <a href="{% url 'bankroll:index' %}" class="hover:text-slate-300 transition-colors">Bankroll</a>
+    <span>/</span>
+    <a href="{% url 'bankroll:history' %}" class="hover:text-slate-300 transition-colors">History</a>
+    <span>/</span>
+    <span class="text-slate-300 truncate max-w-xs">{{ bet.description|truncatechars:40 }}</span>
+  </nav>
+
+  <!-- Header card -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-3 mb-2 flex-wrap">
+          <span class="px-2 py-0.5 rounded text-xs font-bold
+            {% if bet.sport == 'NFL' %}bg-blue-900/60 text-blue-300
+            {% elif bet.sport == 'NBA' %}bg-orange-900/60 text-orange-300
+            {% elif bet.sport == 'NHL' %}bg-cyan-900/60 text-cyan-300
+            {% elif bet.sport == 'MLB' %}bg-red-900/60 text-red-300
+            {% elif bet.sport == 'Soccer' %}bg-green-900/60 text-green-300
+            {% else %}bg-slate-700 text-slate-300{% endif %}">
+            {% if bet.sport == 'NFL' %}🏈{% elif bet.sport == 'NBA' %}🏀{% elif bet.sport == 'NHL' %}🏒{% elif bet.sport == 'MLB' %}⚾{% elif bet.sport == 'Soccer' %}⚽{% endif %}
+            {{ bet.sport }}
+          </span>
+          <span class="px-2 py-0.5 rounded text-xs font-bold
+            {% if bet.side == 'YES' %}bg-green-900/60 text-green-300{% else %}bg-red-900/60 text-red-300{% endif %}">
+            {{ bet.side|default:"YES" }}
+          </span>
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold
+            {% if bet.outcome == 'WON' %}bg-green-900/60 text-green-300
+            {% elif bet.outcome == 'LOST' %}bg-red-900/60 text-red-300
+            {% elif bet.outcome == 'PENDING' %}bg-amber-900/60 text-amber-300
+            {% elif bet.outcome == 'PUSH' %}bg-slate-700 text-slate-300
+            {% else %}bg-slate-700 text-slate-400{% endif %}">
+            {{ bet.outcome|default:"PENDING" }}
+          </span>
+        </div>
+        <h1 class="text-xl font-bold text-white leading-snug">{{ bet.description }}</h1>
+        <p class="text-slate-500 text-xs mt-1">Logged {{ bet.created_at|date:"M j, Y \a\t g:i A" }}</p>
+      </div>
+
+      <!-- P&L display -->
+      <div class="text-right shrink-0">
+        {% if bet.pnl is not None %}
+        <p class="text-xs text-slate-400 mb-1">P&amp;L</p>
+        <p class="text-4xl font-bold font-mono {% if bet.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+          {% if bet.pnl >= 0 %}+{% endif %}${{ bet.pnl|floatformat:2 }}
+        </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Bet details grid -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+    <h2 class="font-semibold text-white mb-4">Bet Details</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-5">
+      <div>
+        <p class="text-xs text-slate-500 mb-0.5">Amount</p>
+        <p class="text-lg font-bold font-mono text-white">${{ bet.amount|floatformat:2 }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-500 mb-0.5">Entry Price</p>
+        <p class="text-lg font-bold font-mono text-white">${{ bet.entry_price|floatformat:2|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-500 mb-0.5">Shares</p>
+        <p class="text-lg font-bold font-mono text-white">
+          {% if bet.entry_price and bet.amount %}{{ bet.amount|floatformat:2|add:"0"|divisibleby:bet.entry_price }}{% else %}—{% endif %}
+        </p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-500 mb-0.5">Predicted Edge</p>
+        <p class="text-lg font-bold font-mono
+          {% if bet.predicted_edge >= 5 %}text-green-400{% elif bet.predicted_edge >= 3 %}text-amber-400{% else %}text-slate-300{% endif %}">
+          {% if bet.predicted_edge %}+{{ bet.predicted_edge|floatformat:1 }}%{% else %}—{% endif %}
+        </p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-500 mb-0.5">Exit Price</p>
+        <p class="text-lg font-bold font-mono text-slate-300">{{ bet.exit_price|floatformat:2|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-500 mb-0.5">Settled</p>
+        <p class="text-sm font-medium text-slate-300">{{ bet.settled_at|date:"M j, Y g:i A"|default:"Pending" }}</p>
+      </div>
+    </div>
+
+    {% if bet.contract %}
+    <div class="mt-5 pt-5 border-t border-slate-700/50">
+      <p class="text-xs text-slate-500 mb-1">Linked Contract</p>
+      <a href="{% url 'markets:contract_detail' bet.contract.pk %}"
+         class="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors">
+        {{ bet.contract.title }}
+      </a>
+    </div>
+    {% endif %}
+
+    {% if bet.notes %}
+    <div class="mt-5 pt-5 border-t border-slate-700/50">
+      <p class="text-xs text-slate-500 mb-1.5">Notes</p>
+      <p class="text-sm text-slate-300 leading-relaxed">{{ bet.notes }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Settle form (PENDING only) -->
+  {% if bet.outcome == 'PENDING' %}
+  <div class="bg-slate-800 border border-amber-700/40 rounded-xl p-6" id="settle-section">
+    <h2 class="font-semibold text-white mb-1 flex items-center gap-2">
+      <span class="text-amber-400">⏳</span> Settle this Bet
+    </h2>
+    <p class="text-xs text-slate-500 mb-5">Record the outcome and final price to calculate P&amp;L.</p>
+
+    <div hx-target="#settle-section" hx-swap="outerHTML">
+      {% include "bankroll/partials/settle_form.html" %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Actions -->
+  <div class="flex items-center justify-between">
+    <a href="{% url 'bankroll:history' %}" class="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      Back to History
+    </a>
+    {% if bet.outcome == 'PENDING' %}
+    <a href="{% url 'bankroll:index' %}" class="text-sm text-slate-400 hover:text-white transition-colors">View All Active</a>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

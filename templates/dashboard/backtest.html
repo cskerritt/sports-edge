@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Backtest Results{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Page header -->
+  <div>
+    <h1 class="text-2xl font-bold text-white">Backtest Results</h1>
+    <p class="text-slate-400 text-sm mt-0.5">Historical model performance across all sports and seasons</p>
+  </div>
+
+  <!-- Summary row -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Games</p>
+      <p class="text-3xl font-bold text-white mt-1">{{ total_games|default:"—" }}</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Avg Accuracy</p>
+      <p class="text-3xl font-bold mt-1 {% if avg_accuracy >= 55 %}text-green-400{% elif avg_accuracy >= 50 %}text-amber-400{% else %}text-red-400{% endif %}">
+        {{ avg_accuracy|floatformat:1|default:"—" }}%
+      </p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Avg Brier Score</p>
+      <p class="text-3xl font-bold mt-1 {% if avg_brier <= 0.22 %}text-green-400{% elif avg_brier <= 0.25 %}text-amber-400{% else %}text-red-400{% endif %}">
+        {{ avg_brier|floatformat:3|default:"—" }}
+      </p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Avg ROI</p>
+      <p class="text-3xl font-bold mt-1 {% if avg_roi >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+        {% if avg_roi >= 0 %}+{% endif %}{{ avg_roi|floatformat:1|default:"—" }}%
+      </p>
+    </div>
+  </div>
+
+  <!-- Per-sport cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+    {% for bt in backtest_results %}
+    <div class="bg-slate-800 border rounded-xl overflow-hidden
+      {% if bt.accuracy >= 55 %}border-green-700/40
+      {% elif bt.accuracy >= 50 %}border-amber-700/40
+      {% else %}border-red-700/40{% endif %}">
+
+      <!-- Card header -->
+      <div class="px-5 py-4 border-b border-slate-700 flex items-center justify-between
+        {% if bt.accuracy >= 55 %}bg-green-900/20
+        {% elif bt.accuracy >= 50 %}bg-amber-900/20
+        {% else %}bg-red-900/20{% endif %}">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">
+            {% if bt.sport == 'NFL' %}🏈{% elif bt.sport == 'NBA' %}🏀{% elif bt.sport == 'NHL' %}🏒{% elif bt.sport == 'MLB' %}⚾{% elif bt.sport == 'Soccer' %}⚽{% else %}🏆{% endif %}
+          </span>
+          <div>
+            <h3 class="font-semibold text-white">{{ bt.sport }}</h3>
+            <p class="text-xs text-slate-400">{{ bt.season|default:"All seasons" }}</p>
+          </div>
+        </div>
+        <span class="px-2.5 py-1 rounded-full text-xs font-bold
+          {% if bt.accuracy >= 55 %}bg-green-900/60 text-green-300
+          {% elif bt.accuracy >= 50 %}bg-amber-900/60 text-amber-300
+          {% else %}bg-red-900/60 text-red-300{% endif %}">
+          {% if bt.accuracy >= 55 %}Strong{% elif bt.accuracy >= 50 %}Moderate{% else %}Weak{% endif %}
+        </span>
+      </div>
+
+      <!-- Metrics grid -->
+      <div class="p-5 grid grid-cols-2 gap-4">
+        <div>
+          <p class="text-xs text-slate-500 mb-1">Games Predicted</p>
+          <p class="text-xl font-bold text-white">{{ bt.total_games }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-1">Accuracy</p>
+          <p class="text-xl font-bold
+            {% if bt.accuracy >= 55 %}text-green-400{% elif bt.accuracy >= 50 %}text-amber-400{% else %}text-red-400{% endif %}">
+            {{ bt.accuracy|floatformat:1 }}%
+          </p>
+          <!-- Accuracy bar -->
+          <div class="mt-1.5 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+            <div class="h-full rounded-full
+              {% if bt.accuracy >= 55 %}bg-green-500{% elif bt.accuracy >= 50 %}bg-amber-500{% else %}bg-red-500{% endif %}"
+              style="width: {{ bt.accuracy|floatformat:0 }}%"></div>
+          </div>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-1">Brier Score</p>
+          <p class="text-xl font-bold
+            {% if bt.brier_score <= 0.22 %}text-green-400{% elif bt.brier_score <= 0.25 %}text-amber-400{% else %}text-red-400{% endif %}">
+            {{ bt.brier_score|floatformat:3 }}
+          </p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-1">Log Loss</p>
+          <p class="text-xl font-bold text-slate-300">{{ bt.log_loss|floatformat:3|default:"—" }}</p>
+        </div>
+        <div class="col-span-2 border-t border-slate-700/50 pt-4">
+          <p class="text-xs text-slate-500 mb-1">Flat-Bet ROI</p>
+          <p class="text-2xl font-bold
+            {% if bt.roi >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+            {% if bt.roi >= 0 %}+{% endif %}{{ bt.roi|floatformat:2 }}%
+          </p>
+          <!-- ROI bar -->
+          <div class="mt-2 flex items-center gap-2">
+            <div class="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden relative">
+              <div class="absolute inset-0 flex items-center justify-center">
+                <div class="w-px h-full bg-slate-600"></div>
+              </div>
+              {% if bt.roi >= 0 %}
+              <div class="absolute left-1/2 h-full bg-green-500 rounded-full"
+                   style="width: {{ bt.roi|floatformat:0|default:0 }}%; max-width: 50%"></div>
+              {% else %}
+              <div class="absolute right-1/2 h-full bg-red-500 rounded-full"
+                   style="width: {{ bt.roi|floatformat:0|default:0|slice:'1:' }}%; max-width: 50%"></div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 pb-4">
+        <a href="{% url 'dashboard:sport_detail' bt.sport %}"
+           class="w-full block text-center py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors">
+          View {{ bt.sport }} Analytics &rarr;
+        </a>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full bg-slate-800 border border-slate-700 rounded-xl py-16 text-center">
+      <div class="text-5xl mb-3">📊</div>
+      <p class="text-slate-400 font-medium">No backtest results available</p>
+      <p class="text-slate-600 text-sm mt-1">Run the backtest management command to generate results</p>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

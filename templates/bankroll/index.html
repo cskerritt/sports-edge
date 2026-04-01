@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Bankroll{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Page header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Bankroll</h1>
+      <p class="text-slate-400 text-sm mt-0.5">Track your prediction market performance</p>
+    </div>
+    <a href="{% url 'bankroll:log_bet' %}"
+       class="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-xl transition-colors">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      Log New Bet
+    </a>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+    <!-- Balance -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Current Balance</p>
+      <p class="text-3xl font-bold text-white mt-1">${{ current_balance|floatformat:2|default:"0.00" }}</p>
+      {% if balance_change %}
+      <p class="text-xs mt-1.5 {% if balance_change >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+        {% if balance_change >= 0 %}▲{% else %}▼{% endif %}
+        ${{ balance_change|floatformat:2|cut:"-" }} from start
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- Total Wagered -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Wagered</p>
+      <p class="text-3xl font-bold text-white mt-1">${{ total_wagered|floatformat:2|default:"0.00" }}</p>
+      <p class="text-xs text-slate-500 mt-1.5">{{ total_bets|default:0 }} bets placed</p>
+    </div>
+
+    <!-- Total P&L -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total P&amp;L</p>
+      <p class="text-3xl font-bold mt-1 {% if total_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+        {% if total_pnl >= 0 %}+{% endif %}${{ total_pnl|floatformat:2|default:"0.00" }}
+      </p>
+      {% if roi_pct %}
+      <p class="text-xs mt-1.5 {% if roi_pct >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+        {% if roi_pct >= 0 %}+{% endif %}{{ roi_pct|floatformat:1 }}% ROI
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- Win Rate -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Win Rate</p>
+      <p class="text-3xl font-bold mt-1 {% if win_rate >= 55 %}text-green-400{% elif win_rate >= 50 %}text-amber-400{% else %}text-red-400{% endif %}">
+        {{ win_rate|floatformat:1|default:"—" }}%
+      </p>
+      <p class="text-xs text-slate-500 mt-1.5">{{ wins|default:0 }}W / {{ losses|default:0 }}L / {{ pushes|default:0 }}P</p>
+    </div>
+  </div>
+
+  <!-- P&L by sport bar chart -->
+  {% if pnl_by_sport %}
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+    <h2 class="font-semibold text-white mb-5">P&amp;L by Sport</h2>
+    <div class="space-y-3">
+      {% for item in pnl_by_sport %}
+      <div class="flex items-center gap-4">
+        <div class="w-20 shrink-0 flex items-center gap-1.5">
+          <span class="text-sm">
+            {% if item.sport == 'NFL' %}🏈{% elif item.sport == 'NBA' %}🏀{% elif item.sport == 'NHL' %}🏒{% elif item.sport == 'MLB' %}⚾{% elif item.sport == 'Soccer' %}⚽{% else %}🏆{% endif %}
+          </span>
+          <span class="text-xs font-medium text-slate-300">{{ item.sport }}</span>
+        </div>
+        <div class="flex-1 flex items-center gap-2">
+          <!-- Bar -->
+          <div class="flex-1 h-5 bg-slate-700 rounded-full overflow-hidden relative">
+            {% if item.pnl >= 0 %}
+            <div class="absolute left-0 top-0 h-full bg-green-500/70 rounded-full transition-all"
+                 style="width: {{ item.bar_pct|default:0 }}%"></div>
+            {% else %}
+            <div class="absolute right-0 top-0 h-full bg-red-500/70 rounded-full transition-all"
+                 style="width: {{ item.bar_pct|default:0 }}%"></div>
+            {% endif %}
+          </div>
+          <span class="text-sm font-mono font-semibold w-20 text-right shrink-0
+            {% if item.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+            {% if item.pnl >= 0 %}+{% endif %}${{ item.pnl|floatformat:2 }}
+          </span>
+        </div>
+        <span class="text-xs text-slate-500 shrink-0 w-12 text-right">{{ item.bets }} bets</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Active bets -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+      <h2 class="font-semibold text-white flex items-center gap-2">
+        Active Bets
+        {% if active_bets %}
+        <span class="px-2 py-0.5 bg-amber-600/30 text-amber-300 rounded-full text-xs font-bold">{{ active_bets|length }}</span>
+        {% endif %}
+      </h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-700/50">
+            <th class="text-left px-5 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Description</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Sport</th>
+            <th class="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Side</th>
+            <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Amount</th>
+            <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Entry</th>
+            <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Edge</th>
+            <th class="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/30">
+          {% for bet in active_bets %}
+          <tr class="hover:bg-slate-700/30 transition-colors">
+            <td class="px-5 py-3.5">
+              <a href="{% url 'bankroll:bet_detail' bet.pk %}" class="text-slate-200 hover:text-white transition-colors font-medium truncate block max-w-xs">
+                {{ bet.description|truncatechars:45 }}
+              </a>
+              <p class="text-xs text-slate-500 mt-0.5">{{ bet.created_at|date:"M j, g:i A" }}</p>
+            </td>
+            <td class="px-4 py-3.5">
+              <span class="px-2 py-0.5 rounded text-xs font-bold
+                {% if bet.sport == 'NFL' %}bg-blue-900/60 text-blue-300
+                {% elif bet.sport == 'NBA' %}bg-orange-900/60 text-orange-300
+                {% elif bet.sport == 'NHL' %}bg-cyan-900/60 text-cyan-300
+                {% elif bet.sport == 'MLB' %}bg-red-900/60 text-red-300
+                {% elif bet.sport == 'Soccer' %}bg-green-900/60 text-green-300
+                {% else %}bg-slate-700 text-slate-300{% endif %}">
+                {{ bet.sport }}
+              </span>
+            </td>
+            <td class="px-4 py-3.5 text-center">
+              <span class="px-2 py-0.5 rounded text-xs font-bold
+                {% if bet.side == 'YES' %}bg-green-900/60 text-green-300{% else %}bg-red-900/60 text-red-300{% endif %}">
+                {{ bet.side|default:"YES" }}
+              </span>
+            </td>
+            <td class="px-4 py-3.5 text-right font-mono text-slate-200">${{ bet.amount|floatformat:2 }}</td>
+            <td class="px-4 py-3.5 text-right font-mono text-slate-400">${{ bet.entry_price|floatformat:2 }}</td>
+            <td class="px-4 py-3.5 text-right font-mono font-bold
+              {% if bet.predicted_edge >= 5 %}text-green-400{% elif bet.predicted_edge >= 3 %}text-amber-400{% else %}text-slate-400{% endif %}">
+              {% if bet.predicted_edge %}+{{ bet.predicted_edge|floatformat:1 }}%{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3.5 text-center">
+              <a href="{% url 'bankroll:bet_detail' bet.pk %}"
+                 class="px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/40 border border-amber-600/40 text-amber-400 text-xs font-medium rounded-lg transition-colors">
+                Settle
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="px-5 py-10 text-center text-slate-500 text-sm">
+              No active bets.
+              <a href="{% url 'bankroll:log_bet' %}" class="text-green-400 hover:text-green-300 ml-1">Log one now</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent settled bets -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+      <h2 class="font-semibold text-white">Recent Settled Bets</h2>
+      <a href="{% url 'bankroll:history' %}" class="text-xs text-slate-400 hover:text-white transition-colors">Full history &rarr;</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-700/50">
+            <th class="text-left px-5 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Description</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Sport</th>
+            <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Amount</th>
+            <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">P&amp;L</th>
+            <th class="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Outcome</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/30">
+          {% for bet in settled_bets %}
+          <tr class="hover:bg-slate-700/30 transition-colors">
+            <td class="px-5 py-3.5">
+              <a href="{% url 'bankroll:bet_detail' bet.pk %}" class="text-slate-200 hover:text-white transition-colors font-medium truncate block max-w-xs">
+                {{ bet.description|truncatechars:45 }}
+              </a>
+              <p class="text-xs text-slate-500 mt-0.5">{{ bet.settled_at|date:"M j, g:i A"|default:bet.updated_at|date:"M j" }}</p>
+            </td>
+            <td class="px-4 py-3.5">
+              <span class="px-2 py-0.5 rounded text-xs font-bold
+                {% if bet.sport == 'NFL' %}bg-blue-900/60 text-blue-300
+                {% elif bet.sport == 'NBA' %}bg-orange-900/60 text-orange-300
+                {% elif bet.sport == 'NHL' %}bg-cyan-900/60 text-cyan-300
+                {% elif bet.sport == 'MLB' %}bg-red-900/60 text-red-300
+                {% elif bet.sport == 'Soccer' %}bg-green-900/60 text-green-300
+                {% else %}bg-slate-700 text-slate-300{% endif %}">
+                {{ bet.sport }}
+              </span>
+            </td>
+            <td class="px-4 py-3.5 text-right font-mono text-slate-300">${{ bet.amount|floatformat:2 }}</td>
+            <td class="px-4 py-3.5 text-right font-mono font-semibold
+              {% if bet.pnl > 0 %}text-green-400{% elif bet.pnl < 0 %}text-red-400{% else %}text-slate-400{% endif %}">
+              {% if bet.pnl is not None %}{% if bet.pnl > 0 %}+{% endif %}${{ bet.pnl|floatformat:2 }}{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3.5 text-center">
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+                {% if bet.outcome == 'WON' %}bg-green-900/60 text-green-300
+                {% elif bet.outcome == 'LOST' %}bg-red-900/60 text-red-300
+                {% elif bet.outcome == 'PUSH' %}bg-slate-700 text-slate-300
+                {% else %}bg-slate-700 text-slate-400{% endif %}">
+                {{ bet.outcome }}
+              </span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="px-5 py-10 text-center text-slate-500 text-sm">No settled bets yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

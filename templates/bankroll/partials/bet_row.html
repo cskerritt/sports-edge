@@ -1,0 +1,65 @@
+<tr class="hover:bg-slate-700/30 transition-colors" id="bet-row-{{ bet.pk }}">
+  <td class="px-5 py-3.5">
+    <a href="{% url 'bankroll:bet_detail' bet.pk %}"
+       class="font-medium text-slate-200 hover:text-white transition-colors truncate block max-w-xs">
+      {{ bet.description|truncatechars:48 }}
+    </a>
+    {% if bet.contract %}
+    <p class="text-xs text-slate-500 mt-0.5 truncate max-w-xs">{{ bet.contract.title|truncatechars:40 }}</p>
+    {% endif %}
+  </td>
+
+  <td class="px-4 py-3.5">
+    <span class="px-2 py-0.5 rounded text-xs font-bold
+      {% if bet.sport == 'NFL' %}bg-blue-900/60 text-blue-300
+      {% elif bet.sport == 'NBA' %}bg-orange-900/60 text-orange-300
+      {% elif bet.sport == 'NHL' %}bg-cyan-900/60 text-cyan-300
+      {% elif bet.sport == 'MLB' %}bg-red-900/60 text-red-300
+      {% elif bet.sport == 'Soccer' %}bg-green-900/60 text-green-300
+      {% else %}bg-slate-700 text-slate-300{% endif %}">
+      {% if bet.sport == 'NFL' %}🏈{% elif bet.sport == 'NBA' %}🏀{% elif bet.sport == 'NHL' %}🏒{% elif bet.sport == 'MLB' %}⚾{% elif bet.sport == 'Soccer' %}⚽{% endif %}
+      {{ bet.sport }}
+    </span>
+  </td>
+
+  <td class="px-4 py-3.5 text-center">
+    <span class="px-2 py-0.5 rounded text-xs font-bold
+      {% if bet.side == 'YES' %}bg-green-900/60 text-green-300{% else %}bg-red-900/60 text-red-300{% endif %}">
+      {{ bet.side|default:"YES" }}
+    </span>
+  </td>
+
+  <td class="px-4 py-3.5 text-right font-mono text-slate-200">
+    ${{ bet.amount|floatformat:2 }}
+  </td>
+
+  <td class="px-4 py-3.5 text-right font-mono font-medium
+    {% if bet.predicted_edge >= 5 %}text-green-400
+    {% elif bet.predicted_edge >= 3 %}text-amber-400
+    {% elif bet.predicted_edge %}text-slate-300
+    {% else %}text-slate-600{% endif %}">
+    {% if bet.predicted_edge %}+{{ bet.predicted_edge|floatformat:1 }}%{% else %}—{% endif %}
+  </td>
+
+  <td class="px-4 py-3.5 text-right font-mono font-semibold
+    {% if bet.pnl > 0 %}text-green-400{% elif bet.pnl < 0 %}text-red-400{% else %}text-slate-400{% endif %}">
+    {% if bet.pnl is not None %}
+      {% if bet.pnl > 0 %}+{% endif %}${{ bet.pnl|floatformat:2 }}
+    {% else %}—{% endif %}
+  </td>
+
+  <td class="px-4 py-3.5 text-center">
+    <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+      {% if bet.outcome == 'WON' %}bg-green-900/60 text-green-300
+      {% elif bet.outcome == 'LOST' %}bg-red-900/60 text-red-300
+      {% elif bet.outcome == 'PENDING' %}bg-amber-900/60 text-amber-300
+      {% elif bet.outcome == 'PUSH' %}bg-slate-700 text-slate-300
+      {% else %}bg-slate-700 text-slate-400{% endif %}">
+      {{ bet.outcome|default:"PENDING" }}
+    </span>
+  </td>
+
+  <td class="px-4 py-3.5 text-xs text-slate-400 whitespace-nowrap">
+    {{ bet.created_at|date:"M j, Y" }}
+  </td>
+</tr>

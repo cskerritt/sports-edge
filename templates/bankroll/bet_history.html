@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Bet History{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Page header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Bet History</h1>
+      <p class="text-slate-400 text-sm mt-0.5">Full record of all logged prediction market bets</p>
+    </div>
+    <a href="{% url 'bankroll:log_bet' %}"
+       class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-xl transition-colors">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      Log Bet
+    </a>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <p class="text-xs text-slate-400 uppercase tracking-wider">Total Bets</p>
+      <p class="text-2xl font-bold text-white mt-1">{{ summary.total_bets|default:0 }}</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <p class="text-xs text-slate-400 uppercase tracking-wider">Win Rate</p>
+      <p class="text-2xl font-bold mt-1 {% if summary.win_rate >= 55 %}text-green-400{% elif summary.win_rate >= 50 %}text-amber-400{% else %}text-red-400{% endif %}">
+        {{ summary.win_rate|floatformat:1|default:"—" }}%
+      </p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <p class="text-xs text-slate-400 uppercase tracking-wider">Total P&amp;L</p>
+      <p class="text-2xl font-bold mt-1 {% if summary.total_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+        {% if summary.total_pnl >= 0 %}+{% endif %}${{ summary.total_pnl|floatformat:2|default:"0.00" }}
+      </p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <p class="text-xs text-slate-400 uppercase tracking-wider">Avg Edge</p>
+      <p class="text-2xl font-bold mt-1 {% if summary.avg_edge >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+        {% if summary.avg_edge %}{% if summary.avg_edge >= 0 %}+{% endif %}{{ summary.avg_edge|floatformat:1 }}%{% else %}—{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+    <form method="get" class="flex flex-wrap items-end gap-4">
+      <!-- Sport -->
+      <div class="flex-1 min-w-[120px]">
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">Sport</label>
+        <select name="sport" onchange="this.form.submit()"
+                class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-green-500">
+          <option value="">All</option>
+          <option value="NFL"    {% if filters.sport == 'NFL'    %}selected{% endif %}>🏈 NFL</option>
+          <option value="NBA"    {% if filters.sport == 'NBA'    %}selected{% endif %}>🏀 NBA</option>
+          <option value="NHL"    {% if filters.sport == 'NHL'    %}selected{% endif %}>🏒 NHL</option>
+          <option value="MLB"    {% if filters.sport == 'MLB'    %}selected{% endif %}>⚾ MLB</option>
+          <option value="Soccer" {% if filters.sport == 'Soccer' %}selected{% endif %}>⚽ Soccer</option>
+        </select>
+      </div>
+
+      <!-- Outcome -->
+      <div class="flex-1 min-w-[120px]">
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">Outcome</label>
+        <select name="outcome" onchange="this.form.submit()"
+                class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-green-500">
+          <option value="">All</option>
+          <option value="PENDING" {% if filters.outcome == 'PENDING' %}selected{% endif %}>Pending</option>
+          <option value="WON"     {% if filters.outcome == 'WON'     %}selected{% endif %}>Won</option>
+          <option value="LOST"    {% if filters.outcome == 'LOST'    %}selected{% endif %}>Lost</option>
+          <option value="PUSH"    {% if filters.outcome == 'PUSH'    %}selected{% endif %}>Push</option>
+          <option value="VOID"    {% if filters.outcome == 'VOID'    %}selected{% endif %}>Void</option>
+        </select>
+      </div>
+
+      <!-- Date from -->
+      <div class="flex-1 min-w-[140px]">
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">From</label>
+        <input type="date" name="date_from" value="{{ filters.date_from|default:'' }}"
+               class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-green-500" />
+      </div>
+
+      <!-- Date to -->
+      <div class="flex-1 min-w-[140px]">
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">To</label>
+        <input type="date" name="date_to" value="{{ filters.date_to|default:'' }}"
+               class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-green-500" />
+      </div>
+
+      <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors">Apply</button>
+      <a href="{% url 'bankroll:history' %}" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">Reset</a>
+    </form>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-700">
+            <th class="text-left px-5 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Description</th>
+            <th class="text-left px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Sport</th>
+            <th class="text-center px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Side</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Amount</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Edge</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">P&amp;L</th>
+            <th class="text-center px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Outcome</th>
+            <th class="text-left px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Date</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/30">
+          {% for bet in bets %}
+          {% include "bankroll/partials/bet_row.html" %}
+          {% empty %}
+          <tr>
+            <td colspan="8" class="px-5 py-16 text-center">
+              <div class="text-4xl mb-3">📋</div>
+              <p class="text-slate-400 font-medium">No bets match your filters</p>
+              <a href="{% url 'bankroll:log_bet' %}" class="inline-block mt-3 text-sm text-green-400 hover:text-green-300 transition-colors">Log your first bet</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="px-5 py-4 border-t border-slate-700 flex items-center justify-between">
+      <p class="text-xs text-slate-500">
+        Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} bets
+      </p>
+      <div class="flex items-center gap-1">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if filters.sport %}&sport={{ filters.sport }}{% endif %}{% if filters.outcome %}&outcome={{ filters.outcome }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors">
+          &larr; Prev
+        </a>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+          {% if page_obj.number == num %}
+          <span class="px-3 py-1.5 rounded-lg text-xs bg-green-600 text-white font-medium">{{ num }}</span>
+          {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+          <a href="?page={{ num }}" class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if filters.sport %}&sport={{ filters.sport }}{% endif %}{% if filters.outcome %}&outcome={{ filters.outcome }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors">
+          Next &rarr;
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

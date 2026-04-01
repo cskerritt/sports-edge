@@ -1,0 +1,109 @@
+{% load humanize %}
+{% if today_games %}
+<table class="w-full text-sm">
+  <thead>
+    <tr class="border-b border-slate-700/50">
+      <th class="text-left px-5 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Sport</th>
+      <th class="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Matchup</th>
+      <th class="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Time</th>
+      <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Away Win%</th>
+      <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Home Win%</th>
+      <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Total</th>
+      <th class="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Edge</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-slate-700/30">
+    {% for game in today_games %}
+    <tr class="hover:bg-slate-700/30 transition-colors group">
+      <!-- Sport badge -->
+      <td class="px-5 py-3.5">
+        <span class="px-2 py-0.5 rounded text-xs font-bold
+          {% if game.sport == 'NFL' %}bg-blue-900/60 text-blue-300
+          {% elif game.sport == 'NBA' %}bg-orange-900/60 text-orange-300
+          {% elif game.sport == 'NHL' %}bg-cyan-900/60 text-cyan-300
+          {% elif game.sport == 'MLB' %}bg-red-900/60 text-red-300
+          {% elif game.sport == 'Soccer' %}bg-green-900/60 text-green-300
+          {% else %}bg-slate-700 text-slate-300{% endif %}">
+          {% if game.sport == 'NFL' %}🏈{% elif game.sport == 'NBA' %}🏀{% elif game.sport == 'NHL' %}🏒{% elif game.sport == 'MLB' %}⚾{% elif game.sport == 'Soccer' %}⚽{% endif %}
+          {{ game.sport }}
+        </span>
+      </td>
+
+      <!-- Matchup -->
+      <td class="px-4 py-3.5">
+        <a href="{% url 'dashboard:game_detail' game.pk %}"
+           class="font-medium text-slate-200 hover:text-white transition-colors group-hover:text-white">
+          <span class="text-slate-400">{{ game.away_team }}</span>
+          <span class="text-slate-500 mx-1.5">@</span>
+          <span>{{ game.home_team }}</span>
+        </a>
+      </td>
+
+      <!-- Time -->
+      <td class="px-4 py-3.5 text-slate-400 whitespace-nowrap">
+        {{ game.game_time|date:"g:i A" }}
+      </td>
+
+      <!-- Away Win% -->
+      <td class="px-4 py-3.5 text-right">
+        {% if game.prediction %}
+          {% widthratio game.prediction.away_win_prob 1 100 as away_pct %}
+          <span class="font-mono font-medium
+            {% if game.prediction.away_win_prob >= 0.6 %}text-green-400
+            {% elif game.prediction.away_win_prob >= 0.5 %}text-slate-200
+            {% else %}text-slate-500{% endif %}">
+            {{ away_pct }}%
+          </span>
+        {% else %}
+          <span class="text-slate-600">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Home Win% -->
+      <td class="px-4 py-3.5 text-right">
+        {% if game.prediction %}
+          {% widthratio game.prediction.home_win_prob 1 100 as home_pct %}
+          <span class="font-mono font-medium
+            {% if game.prediction.home_win_prob >= 0.6 %}text-green-400
+            {% elif game.prediction.home_win_prob >= 0.5 %}text-slate-200
+            {% else %}text-slate-500{% endif %}">
+            {{ home_pct }}%
+          </span>
+        {% else %}
+          <span class="text-slate-600">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Predicted Total -->
+      <td class="px-4 py-3.5 text-right font-mono text-slate-400">
+        {% if game.prediction and game.prediction.predicted_total %}
+          {{ game.prediction.predicted_total|floatformat:1 }}
+        {% else %}
+          <span class="text-slate-600">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Edge badge -->
+      <td class="px-4 py-3.5 text-center">
+        {% if game.best_edge %}
+          <span class="px-2.5 py-1 rounded-full text-xs font-bold
+            {% if game.best_edge >= 5 %}bg-green-900/60 text-green-300
+            {% elif game.best_edge >= 3 %}bg-amber-900/60 text-amber-300
+            {% else %}bg-slate-700/60 text-slate-400{% endif %}">
+            +{{ game.best_edge|floatformat:1 }}%
+          </span>
+        {% else %}
+          <span class="text-slate-600 text-xs">—</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="py-16 text-center">
+  <div class="text-5xl mb-3">🏟️</div>
+  <p class="text-slate-400 font-medium">No games scheduled for today</p>
+  <p class="text-slate-600 text-sm mt-1">Check back later or view another sport</p>
+</div>
+{% endif %}

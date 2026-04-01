@@ -1,0 +1,82 @@
+{% for alert in edge_alerts %}
+<tr class="hover:bg-slate-700/20 transition-colors
+  {% if alert.edge_pct >= 5 %}bg-green-900/10{% elif alert.edge_pct >= 3 %}bg-amber-900/10{% endif %}">
+
+  <!-- Sport -->
+  <td class="px-5 py-3.5">
+    <span class="px-2 py-0.5 rounded text-xs font-bold
+      {% if alert.sport == 'NFL' %}bg-blue-900/60 text-blue-300
+      {% elif alert.sport == 'NBA' %}bg-orange-900/60 text-orange-300
+      {% elif alert.sport == 'NHL' %}bg-cyan-900/60 text-cyan-300
+      {% elif alert.sport == 'MLB' %}bg-red-900/60 text-red-300
+      {% elif alert.sport == 'Soccer' %}bg-green-900/60 text-green-300
+      {% else %}bg-slate-700 text-slate-300{% endif %}">
+      {% if alert.sport == 'NFL' %}🏈{% elif alert.sport == 'NBA' %}🏀{% elif alert.sport == 'NHL' %}🏒{% elif alert.sport == 'MLB' %}⚾{% elif alert.sport == 'Soccer' %}⚽{% endif %}
+      {{ alert.sport }}
+    </span>
+  </td>
+
+  <!-- Contract -->
+  <td class="px-4 py-3.5">
+    <a href="{% url 'markets:contract_detail' alert.contract.pk %}"
+       class="text-slate-200 hover:text-white transition-colors font-medium truncate block max-w-xs">
+      {{ alert.contract.title }}
+    </a>
+    {% if alert.contract.game %}
+    <p class="text-xs text-slate-500 mt-0.5">{{ alert.contract.game.away_team }} @ {{ alert.contract.game.home_team }}</p>
+    {% endif %}
+  </td>
+
+  <!-- Model % -->
+  <td class="px-4 py-3.5 text-right font-mono font-medium text-blue-300">
+    {% widthratio alert.model_probability 1 100 as model_pct %}{{ model_pct }}%
+  </td>
+
+  <!-- Market % -->
+  <td class="px-4 py-3.5 text-right font-mono text-slate-400">
+    {% widthratio alert.market_probability 1 100 as market_pct %}{{ market_pct }}%
+  </td>
+
+  <!-- Edge -->
+  <td class="px-4 py-3.5 text-right">
+    <span class="font-mono font-bold text-base
+      {% if alert.edge_pct >= 5 %}text-green-400
+      {% elif alert.edge_pct >= 3 %}text-amber-400
+      {% elif alert.edge_pct > 0 %}text-slate-300
+      {% else %}text-red-400{% endif %}">
+      {% if alert.edge_pct > 0 %}+{% endif %}{{ alert.edge_pct|floatformat:1 }}%
+    </span>
+  </td>
+
+  <!-- Kelly % -->
+  <td class="px-4 py-3.5 text-right font-mono text-slate-300">
+    {{ alert.kelly_pct|floatformat:1 }}%
+  </td>
+
+  <!-- Confidence -->
+  <td class="px-4 py-3.5 text-center">
+    <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+      {% if alert.confidence == 'HIGH' %}bg-green-900/60 text-green-300
+      {% elif alert.confidence == 'MEDIUM' %}bg-amber-900/60 text-amber-300
+      {% else %}bg-slate-700 text-slate-400{% endif %}">
+      {{ alert.confidence|default:"LOW" }}
+    </span>
+  </td>
+
+  <!-- Action -->
+  <td class="px-4 py-3.5 text-center">
+    <a href="{% url 'bankroll:log_bet' %}?alert={{ alert.pk }}"
+       class="px-3 py-1.5 bg-green-600/20 hover:bg-green-600/40 border border-green-600/40 text-green-400 hover:text-green-300 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
+      Log Bet
+    </a>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="8" class="px-5 py-16 text-center">
+    <div class="text-4xl mb-3">🔍</div>
+    <p class="text-slate-400 font-medium">No edge alerts match your filters</p>
+    <p class="text-slate-600 text-sm mt-1">Try lowering the minimum edge threshold</p>
+  </td>
+</tr>
+{% endfor %}

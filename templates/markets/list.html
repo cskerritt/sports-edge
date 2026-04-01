@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Markets{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Page header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Markets</h1>
+      <p class="text-slate-400 text-sm mt-0.5">All prediction market contracts</p>
+    </div>
+    <div class="text-xs text-slate-500">{{ total_count|default:0 }} contracts</div>
+  </div>
+
+  <!-- Filter pills -->
+  <div class="flex items-center gap-2 flex-wrap">
+    <a href="{% url 'markets:list' %}"
+       class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors {% if not active_sport %}bg-green-600 text-white{% else %}bg-slate-700 text-slate-300 hover:bg-slate-600{% endif %}">
+      All
+    </a>
+    {% for sport_code, sport_emoji in sport_filters %}
+    <a href="{% url 'markets:list' %}?sport={{ sport_code }}"
+       class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors {% if active_sport == sport_code %}bg-green-600 text-white{% else %}bg-slate-700 text-slate-300 hover:bg-slate-600{% endif %}">
+      {{ sport_emoji }} {{ sport_code }}
+    </a>
+    {% empty %}
+    {% for s in "NFL:🏈,NBA:🏀,NHL:🏒,MLB:⚾,Soccer:⚽"|split:"," %}
+    <a href="?sport={{ s|slice:':3' }}"
+       class="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">
+      {{ s }}
+    </a>
+    {% endfor %}
+    {% endfor %}
+
+    <!-- Type filter -->
+    <div class="ml-2 flex items-center gap-2">
+      <span class="text-xs text-slate-500">Type:</span>
+      <a href="?{% if active_sport %}sport={{ active_sport }}&{% endif %}type=WIN"
+         class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors {% if active_type == 'WIN' %}bg-blue-600 text-white{% else %}bg-slate-700 text-slate-300 hover:bg-slate-600{% endif %}">
+        Moneyline
+      </a>
+      <a href="?{% if active_sport %}sport={{ active_sport }}&{% endif %}type=SPREAD"
+         class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors {% if active_type == 'SPREAD' %}bg-blue-600 text-white{% else %}bg-slate-700 text-slate-300 hover:bg-slate-600{% endif %}">
+        Spread
+      </a>
+      <a href="?{% if active_sport %}sport={{ active_sport }}&{% endif %}type=TOTAL"
+         class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors {% if active_type == 'TOTAL' %}bg-blue-600 text-white{% else %}bg-slate-700 text-slate-300 hover:bg-slate-600{% endif %}">
+        Total
+      </a>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-700">
+            <th class="text-left px-5 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Contract Title</th>
+            <th class="text-center px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Sport</th>
+            <th class="text-center px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Type</th>
+            <th class="text-left px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Game Date</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">YES Price</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Model %</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Edge</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Volume</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/30">
+          {% for contract in contracts %}
+          <tr class="hover:bg-slate-700/30 transition-colors">
+            <td class="px-5 py-3.5">
+              <a href="{% url 'markets:contract_detail' contract.pk %}"
+                 class="font-medium text-slate-200 hover:text-white transition-colors">
+                {{ contract.title }}
+              </a>
+              {% if contract.game %}
+              <p class="text-xs text-slate-500 mt-0.5">{{ contract.game.away_team }} @ {{ contract.game.home_team }}</p>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3.5 text-center">
+              <span class="px-2 py-0.5 rounded text-xs font-bold
+                {% if contract.sport == 'NFL' %}bg-blue-900/60 text-blue-300
+                {% elif contract.sport == 'NBA' %}bg-orange-900/60 text-orange-300
+                {% elif contract.sport == 'NHL' %}bg-cyan-900/60 text-cyan-300
+                {% elif contract.sport == 'MLB' %}bg-red-900/60 text-red-300
+                {% elif contract.sport == 'Soccer' %}bg-green-900/60 text-green-300
+                {% else %}bg-slate-700 text-slate-300{% endif %}">
+                {{ contract.sport }}
+              </span>
+            </td>
+            <td class="px-4 py-3.5 text-center">
+              <span class="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-300">
+                {{ contract.contract_type|default:"WIN" }}
+              </span>
+            </td>
+            <td class="px-4 py-3.5 text-slate-400 text-xs whitespace-nowrap">
+              {{ contract.game.game_time|date:"M j, g:i A"|default:"—" }}
+            </td>
+            <td class="px-4 py-3.5 text-right font-mono font-medium text-slate-200">
+              ${{ contract.latest_yes_price|floatformat:2|default:"—" }}
+            </td>
+            <td class="px-4 py-3.5 text-right font-mono text-blue-300">
+              {% if contract.open_alert %}
+                {% widthratio contract.open_alert.model_probability 1 100 as model_pct %}
+                {{ model_pct }}%
+              {% else %}
+                <span class="text-slate-600">—%</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3.5 text-right">
+              {% if contract.open_alert %}
+              <span class="font-mono font-bold text-sm
+                {% if contract.open_alert.edge_pct >= 5 %}text-green-400
+                {% elif contract.open_alert.edge_pct >= 3 %}text-amber-400
+                {% elif contract.open_alert.edge_pct > 0 %}text-slate-300
+                {% else %}text-red-400{% endif %}">
+                {% if contract.open_alert.edge_pct > 0 %}+{% endif %}{{ contract.open_alert.edge_pct|floatformat:1 }}%
+              </span>
+              {% else %}
+              <span class="text-slate-600">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3.5 text-right font-mono text-slate-400">
+              —
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="px-5 py-16 text-center">
+              <div class="text-4xl mb-3">📋</div>
+              <p class="text-slate-400 font-medium">No contracts found</p>
+              <p class="text-slate-600 text-sm mt-1">Try adjusting your filters</p>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="px-5 py-4 border-t border-slate-700 flex items-center justify-between">
+      <p class="text-xs text-slate-500">
+        Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+      </p>
+      <div class="flex items-center gap-1">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if active_sport %}&sport={{ active_sport }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors">
+          &larr; Prev
+        </a>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <span class="px-3 py-1.5 rounded-lg text-xs bg-green-600 text-white font-medium">{{ num }}</span>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}{% if active_sport %}&sport={{ active_sport }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">{{ num }}</a>
+        {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if active_sport %}&sport={{ active_sport }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors">
+          Next &rarr;
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

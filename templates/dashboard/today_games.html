@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Today's Games{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Page header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Today's Games</h1>
+      <p class="text-slate-400 text-sm mt-0.5">{% now "l, F j, Y" %} &mdash; All upcoming games with model predictions</p>
+    </div>
+    <div class="flex items-center gap-2 text-sm text-slate-400">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>Last updated: {% now "g:i A" %}</span>
+    </div>
+  </div>
+
+  <!-- Main card -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl">
+
+    <!-- Sport filter pills -->
+    <div class="flex items-center gap-2 px-5 py-4 border-b border-slate-700 overflow-x-auto">
+      <span class="text-xs text-slate-500 shrink-0 mr-1">Filter:</span>
+      <button
+        class="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors {% if not active_sport or active_sport == 'All' %}bg-green-600 text-white{% else %}bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white{% endif %}"
+        hx-get="{% url 'dashboard:today' %}"
+        hx-target="#games-container"
+        hx-swap="innerHTML"
+        hx-indicator="#htmx-indicator"
+        hx-push-url="{% url 'dashboard:today' %}">
+        All
+      </button>
+      {% for sport_code, sport_emoji in sport_filters %}
+      <button
+        class="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors {% if active_sport == sport_code %}bg-green-600 text-white{% else %}bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white{% endif %}"
+        hx-get="{% url 'dashboard:today' %}?sport={{ sport_code }}"
+        hx-target="#games-container"
+        hx-swap="innerHTML"
+        hx-indicator="#htmx-indicator"
+        hx-push-url="{% url 'dashboard:today' %}?sport={{ sport_code }}">
+        {{ sport_emoji }} {{ sport_code }}
+      </button>
+      {% empty %}
+      {% for item in "NFL:🏈,NBA:🏀,NHL:🏒,MLB:⚾,Soccer:⚽"|split:"," %}
+      {% with parts=item|split:":" %}
+      <button
+        class="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+        hx-get="{% url 'dashboard:today' %}?sport={{ parts.0 }}"
+        hx-target="#games-container"
+        hx-swap="innerHTML"
+        hx-indicator="#htmx-indicator">
+        {{ parts.1 }} {{ parts.0 }}
+      </button>
+      {% endwith %}
+      {% endfor %}
+      {% endfor %}
+    </div>
+
+    <!-- Games container (HTMX target) -->
+    <div id="games-container" class="overflow-x-auto">
+      {% include "dashboard/partials/games_list.html" %}
+    </div>
+
+  </div>
+
+  <!-- Legend -->
+  <div class="flex items-center gap-6 text-xs text-slate-500 px-1">
+    <span class="flex items-center gap-1.5">
+      <span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>
+      Strong edge (&gt;5%)
+    </span>
+    <span class="flex items-center gap-1.5">
+      <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+      Moderate edge (3–5%)
+    </span>
+    <span class="flex items-center gap-1.5">
+      <span class="w-2.5 h-2.5 rounded-full bg-slate-600 inline-block"></span>
+      No significant edge
+    </span>
+  </div>
+
+</div>
+{% endblock %}

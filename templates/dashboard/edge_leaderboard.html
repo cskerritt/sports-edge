@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Edge Leaderboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Page header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Edge Leaderboard</h1>
+      <p class="text-slate-400 text-sm mt-0.5">Contracts where model probability diverges from market price</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-slate-500">{{ total_edges|default:0 }} active edges</span>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+    <form hx-get="{% url 'dashboard:edge_leaderboard' %}"
+          hx-target="#edge-table"
+          hx-swap="innerHTML"
+          hx-indicator="#htmx-indicator"
+          hx-push-url="true"
+          class="flex flex-wrap items-end gap-4">
+
+      <!-- Sport filter -->
+      <div class="flex-1 min-w-[140px]">
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">Sport</label>
+        <select name="sport"
+                class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/20">
+          <option value="">All Sports</option>
+          <option value="NFL" {% if active_sport == 'NFL' %}selected{% endif %}>🏈 NFL</option>
+          <option value="NBA" {% if active_sport == 'NBA' %}selected{% endif %}>🏀 NBA</option>
+          <option value="NHL" {% if active_sport == 'NHL' %}selected{% endif %}>🏒 NHL</option>
+          <option value="MLB" {% if active_sport == 'MLB' %}selected{% endif %}>⚾ MLB</option>
+          <option value="Soccer" {% if active_sport == 'Soccer' %}selected{% endif %}>⚽ Soccer</option>
+        </select>
+      </div>
+
+      <!-- Min edge -->
+      <div class="flex-1 min-w-[140px]" x-data="{ val: '{{ min_edge|default:0 }}' }">
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">
+          Min Edge: <span class="text-green-400 font-bold" x-text="val + '%'"></span>
+        </label>
+        <input type="range" name="min_edge" min="0" max="20" step="0.5"
+               x-model="val"
+               value="{{ min_edge|default:0 }}"
+               class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-green-500" />
+      </div>
+
+      <!-- Min confidence -->
+      <div class="flex-1 min-w-[140px]">
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">Min Confidence</label>
+        <select name="confidence"
+                class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:border-green-500">
+          <option value="">Any</option>
+          <option value="HIGH" {% if active_confidence == 'HIGH' %}selected{% endif %}>High</option>
+          <option value="MEDIUM" {% if active_confidence == 'MEDIUM' %}selected{% endif %}>Medium+</option>
+        </select>
+      </div>
+
+      <button type="submit"
+              class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors">
+        Apply
+      </button>
+      <a href="{% url 'dashboard:edge_leaderboard' %}"
+         class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">
+        Reset
+      </a>
+    </form>
+  </div>
+
+  <!-- Table card -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-700">
+            <th class="text-left px-5 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Sport</th>
+            <th class="text-left px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Contract</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Model %</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Market %</th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer group">
+              <span class="flex items-center justify-end gap-1">
+                Edge
+                <svg class="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </span>
+            </th>
+            <th class="text-right px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Kelly %</th>
+            <th class="text-center px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Confidence</th>
+            <th class="text-center px-4 py-3.5 text-xs font-medium text-slate-400 uppercase tracking-wider">Action</th>
+          </tr>
+        </thead>
+        <tbody id="edge-table" class="divide-y divide-slate-700/30">
+          {% include "dashboard/partials/edge_table.html" %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

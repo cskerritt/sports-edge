@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Preferences{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+
+  <!-- Page header -->
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-white">Preferences</h1>
+    <p class="mt-1 text-slate-400 text-sm">Customize your Sports Edge experience and bankroll settings.</p>
+  </div>
+
+  <!-- HTMX success toast target -->
+  <div id="preferences-toast"></div>
+
+  <form method="post" action="{% url 'accounts:preferences' %}"
+        hx-post="{% url 'accounts:preferences' %}"
+        hx-target="#preferences-toast"
+        hx-swap="innerHTML"
+        hx-indicator="#htmx-indicator">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- ===== LEFT COLUMN ===== -->
+      <div class="space-y-6">
+
+        <!-- Sport Preferences -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+          <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+            </svg>
+            Sport Filters
+          </h2>
+          <p class="text-xs text-slate-400 mb-4">Choose which sports to display on your dashboard.</p>
+
+          <div class="space-y-3">
+            {% for sport_code, sport_label, emoji in sports %}
+            <label class="flex items-center gap-3 cursor-pointer group">
+              <input type="checkbox"
+                     name="sports"
+                     value="{{ sport_code }}"
+                     {% if sport_code in user_sports %}checked{% endif %}
+                     class="w-4 h-4 rounded border-slate-600 bg-slate-900 text-green-500 focus:ring-green-500/30 focus:ring-2 cursor-pointer" />
+              <span class="text-sm text-slate-300 group-hover:text-white transition-colors flex items-center gap-2">
+                <span>{{ emoji }}</span>
+                <span>{{ sport_label }}</span>
+              </span>
+            </label>
+            {% empty %}
+            {% for item in "NFL:🏈,NBA:🏀,NHL:🏒,MLB:⚾,Soccer:⚽"|split:"," %}
+            <label class="flex items-center gap-3 cursor-pointer group">
+              <input type="checkbox" name="sports" value="{{ item|slice:':3' }}" checked
+                     class="w-4 h-4 rounded border-slate-600 bg-slate-900 text-green-500 focus:ring-green-500/30 focus:ring-2 cursor-pointer" />
+              <span class="text-sm text-slate-300 group-hover:text-white transition-colors">{{ item }}</span>
+            </label>
+            {% endfor %}
+            {% endfor %}
+
+            <!-- Fallback static list if context not provided -->
+            {% if not sports %}
+            {% for pair in "NFL|🏈,NBA|🏀,NHL|🏒,MLB|⚾,Soccer|⚽"|split:"," %}
+            <label class="flex items-center gap-3 cursor-pointer group">
+              <input type="checkbox" name="sports" checked
+                     class="w-4 h-4 rounded border-slate-600 bg-slate-900 text-green-500 focus:ring-green-500/30 focus:ring-2 cursor-pointer" />
+              <span class="text-sm text-slate-300 group-hover:text-white transition-colors">{{ pair }}</span>
+            </label>
+            {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Alert Settings -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+          <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            Alert Settings
+          </h2>
+
+          <!-- Min Edge Slider -->
+          <div x-data="{ val: {{ form.min_edge_alert.value|default:5 }} }" class="mb-6">
+            <div class="flex items-center justify-between mb-2">
+              <label for="{{ form.min_edge_alert.id_for_label }}" class="text-sm font-medium text-slate-300">
+                Minimum Edge for Alerts
+              </label>
+              <span class="text-sm font-bold text-green-400" x-text="val + '%'"></span>
+            </div>
+            <input type="range"
+                   name="{{ form.min_edge_alert.html_name }}"
+                   id="{{ form.min_edge_alert.id_for_label }}"
+                   min="1" max="20" step="0.5"
+                   x-model="val"
+                   class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                   value="{{ form.min_edge_alert.value|default:5 }}" />
+            <div class="flex justify-between text-xs text-slate-500 mt-1">
+              <span>1%</span>
+              <span>10%</span>
+              <span>20%</span>
+            </div>
+            {% if form.min_edge_alert.errors %}
+            <p class="mt-1 text-xs text-red-400">{{ form.min_edge_alert.errors|join:", " }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Email Alerts Toggle -->
+          <div x-data="{ enabled: {{ form.email_alerts.value|yesno:'true,false' }} }">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-medium text-slate-300">Email Alerts</label>
+                <p class="text-xs text-slate-500 mt-0.5">Receive edge alerts via email</p>
+              </div>
+              <button type="button" @click="enabled = !enabled"
+                      :class="enabled ? 'bg-green-600' : 'bg-slate-700'"
+                      class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500/30">
+                <span :class="enabled ? 'translate-x-6' : 'translate-x-1'"
+                      class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow"></span>
+              </button>
+            </div>
+            <input type="hidden" name="{{ form.email_alerts.html_name }}"
+                   :value="enabled ? 'true' : 'false'" />
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ===== RIGHT COLUMN ===== -->
+      <div class="space-y-6">
+
+        <!-- Bankroll Settings -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6">
+          <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Bankroll Settings
+          </h2>
+
+          <!-- Initial Bankroll -->
+          <div class="mb-5">
+            <label for="{{ form.initial_bankroll.id_for_label }}" class="block text-sm font-medium text-slate-300 mb-1.5">
+              Initial Bankroll
+            </label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">$</span>
+              <input type="number"
+                     name="{{ form.initial_bankroll.html_name }}"
+                     id="{{ form.initial_bankroll.id_for_label }}"
+                     value="{{ form.initial_bankroll.value|default:1000 }}"
+                     min="0" step="50"
+                     class="w-full pl-7 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-colors" />
+            </div>
+            {% if form.initial_bankroll.errors %}
+            <p class="mt-1 text-xs text-red-400">{{ form.initial_bankroll.errors|join:", " }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Kelly Fraction -->
+          <div x-data="{ val: {{ form.kelly_fraction.value|default:0.25 }} }" class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+              <label for="{{ form.kelly_fraction.id_for_label }}" class="text-sm font-medium text-slate-300">
+                Kelly Fraction
+              </label>
+              <span class="text-sm font-bold text-blue-400" x-text="(val * 100).toFixed(0) + '%'"></span>
+            </div>
+            <input type="range"
+                   name="{{ form.kelly_fraction.html_name }}"
+                   id="{{ form.kelly_fraction.id_for_label }}"
+                   min="0.1" max="1.0" step="0.05"
+                   x-model="val"
+                   class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                   value="{{ form.kelly_fraction.value|default:0.25 }}" />
+            <div class="flex justify-between text-xs text-slate-500 mt-1">
+              <span>10% (Ultra-safe)</span>
+              <span>25% (Quarter-K)</span>
+              <span>100% (Full-K)</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">Lower fractions reduce variance. Quarter-Kelly (25%) is commonly recommended.</p>
+            {% if form.kelly_fraction.errors %}
+            <p class="mt-1 text-xs text-red-400">{{ form.kelly_fraction.errors|join:", " }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Max Bet % -->
+          <div x-data="{ val: {{ form.max_bet_pct.value|default:5 }} }">
+            <div class="flex items-center justify-between mb-2">
+              <label for="{{ form.max_bet_pct.id_for_label }}" class="text-sm font-medium text-slate-300">
+                Max Bet % of Bankroll
+              </label>
+              <span class="text-sm font-bold text-amber-400" x-text="val + '%'"></span>
+            </div>
+            <input type="range"
+                   name="{{ form.max_bet_pct.html_name }}"
+                   id="{{ form.max_bet_pct.id_for_label }}"
+                   min="1" max="25" step="1"
+                   x-model="val"
+                   class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                   value="{{ form.max_bet_pct.value|default:5 }}" />
+            <div class="flex justify-between text-xs text-slate-500 mt-1">
+              <span>1%</span>
+              <span>10%</span>
+              <span>25%</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">Hard cap per bet regardless of Kelly recommendation.</p>
+            {% if form.max_bet_pct.errors %}
+            <p class="mt-1 text-xs text-red-400">{{ form.max_bet_pct.errors|join:", " }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Info card -->
+        <div class="bg-blue-900/20 border border-blue-700/40 rounded-xl p-5">
+          <div class="flex gap-3">
+            <svg class="w-5 h-5 text-blue-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div class="text-xs text-blue-300 space-y-1">
+              <p class="font-semibold">About Kelly Criterion</p>
+              <p>Kelly Criterion calculates the optimal bet size based on your edge and the odds. A fraction of Kelly (e.g. 25%) is safer and reduces the risk of ruin from model inaccuracies.</p>
+              <p class="text-blue-400/70">Edge = Model probability &minus; Market implied probability</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Save button -->
+    <div class="mt-8 flex items-center justify-end gap-4">
+      <a href="{% url 'dashboard:index' %}" class="px-5 py-2.5 text-sm font-medium text-slate-400 hover:text-white transition-colors">
+        Cancel
+      </a>
+      <button type="submit"
+              class="px-6 py-2.5 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-semibold rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-green-500/40 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        Save Preferences
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
