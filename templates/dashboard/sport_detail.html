@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load subscription_tags %}
 
 {% block title %}{{ sport_name }} Analytics{% endblock %}
 
@@ -41,6 +42,7 @@
   </div>
 
   <!-- Model accuracy card + top edges row -->
+  {% if_tier "ELITE" %}
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
     <!-- Accuracy -->
@@ -92,11 +94,15 @@
       {% endif %}
     </div>
   </div>
+  {% else_tier %}
+  {% include "dashboard/partials/upgrade_prompt.html" with tier="ELITE" feature="historical backtests" %}
+  {% endif_tier %}
 
   <!-- Elo + Upcoming games row -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
     <!-- Elo Rankings -->
+    {% if_tier "PRO" %}
     <div class="bg-slate-800 border border-slate-700 rounded-xl">
       <div class="px-5 py-4 border-b border-slate-700">
         <h2 class="font-semibold text-white">Elo Power Rankings</h2>
@@ -137,6 +143,9 @@
         {% endfor %}
       </div>
     </div>
+    {% else_tier %}
+    {% include "dashboard/partials/upgrade_prompt.html" with tier="PRO" feature="Elo ratings and rankings" %}
+    {% endif_tier %}
 
     <!-- Upcoming Games -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl">
@@ -177,6 +186,7 @@
   </div>
 
   <!-- Top Edges for this sport -->
+  {% if_tier "PRO" %}
   {% if sport_edges %}
   <div class="bg-slate-800 border border-slate-700 rounded-xl">
     <div class="flex items-center justify-between px-5 py-4 border-b border-slate-700">
@@ -220,6 +230,9 @@
     </div>
   </div>
   {% endif %}
+  {% else_tier %}
+  {% include "dashboard/partials/upgrade_prompt.html" with tier="PRO" feature="edge alerts" %}
+  {% endif_tier %}
 
 </div>
 {% endblock %}
