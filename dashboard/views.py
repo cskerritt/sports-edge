@@ -2,6 +2,8 @@ import json
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
+
+from subscriptions.decorators import requires_tier
 from django.db.models import Avg, Count, F, FloatField, Prefetch, Q, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, render
@@ -171,6 +173,7 @@ def today_games(request):
     return render(request, "dashboard/today_games.html", context)
 
 
+@requires_tier("PRO")
 @login_required
 def edge_leaderboard(request):
     """
@@ -297,6 +300,7 @@ def sport_detail(request, sport):
     return render(request, "dashboard/sport_detail.html", context)
 
 
+@requires_tier("ELITE")
 @login_required
 def backtest_results(request):
     """
