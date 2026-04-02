@@ -42,3 +42,9 @@ Documents/
 
 # Claude
 .claude/
+
+# Superpowers brainstorm files
+.superpowers/
+
+# Remember plugin
+.remember/
