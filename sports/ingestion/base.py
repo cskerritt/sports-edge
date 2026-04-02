@@ -142,8 +142,9 @@ class BaseIngestor:
 
     @staticmethod
     def _today() -> date:
-        """Return today's date (thin wrapper for easier testing)."""
-        return date.today()
+        """Return today's date in the project timezone (America/New_York)."""
+        from django.utils import timezone
+        return timezone.localdate()
 
     def ingest_espn_scoreboard(self, game_date=None) -> dict:
         """Fetch today's games from ESPN and create/update Game records.

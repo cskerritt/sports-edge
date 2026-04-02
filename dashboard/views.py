@@ -61,7 +61,7 @@ def index(request):
         recent_bets   – the user's 5 most recent BetRecords.
         stats         – dict: total_bets, win_rate, total_pnl.
     """
-    today = timezone.now().date()
+    today = timezone.localdate()
     active_sports = _get_user_sports(request)
 
     # Prefetch the ensemble prediction for each game so we can render
@@ -120,7 +120,7 @@ def today_games(request):
     Returns the full page or, for HTMX requests, only the #games-container
     partial (dashboard/partials/games_list.html).
     """
-    today = timezone.now().date()
+    today = timezone.localdate()
     active_sports = _get_user_sports(request)
     sport_filter = request.GET.get("sport", "").upper()
 
