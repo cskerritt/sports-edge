@@ -1,4 +1,5 @@
 {% load humanize %}
+{% load subscription_tags %}
 {% if today_games %}
 <table class="w-full text-sm">
   <thead>
@@ -6,10 +7,12 @@
       <th class="text-left px-5 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Sport</th>
       <th class="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Matchup</th>
       <th class="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Time</th>
+      {% if_tier "PRO" %}
       <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Away Win%</th>
       <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Home Win%</th>
       <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Total</th>
       <th class="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Edge</th>
+      {% endif_tier %}
     </tr>
   </thead>
   <tbody class="divide-y divide-slate-700/30">
@@ -44,6 +47,7 @@
         {{ game.game_time|date:"g:i A" }}
       </td>
 
+      {% if_tier "PRO" %}
       <!-- Away Win% -->
       <td class="px-4 py-3.5 text-right">
         {% if game.prediction %}
@@ -96,6 +100,7 @@
           <span class="text-slate-600 text-xs">—</span>
         {% endif %}
       </td>
+      {% endif_tier %}
     </tr>
     {% endfor %}
   </tbody>
