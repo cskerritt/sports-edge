@@ -34,12 +34,15 @@ RUN SECRET_KEY=build-placeholder \
     DATABASE_URL=sqlite:///tmp/placeholder.db \
     python manage.py collectstatic --no-input
 
-# Make entrypoint executable
+# Make entrypoints executable
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY worker-entrypoint.sh /worker-entrypoint.sh
+RUN chmod +x /entrypoint.sh /worker-entrypoint.sh
 
 # Non-root user for security
-RUN adduser --disabled-password --no-create-home appuser
+RUN adduser --disabled-password --gecos "" appuser \
+    && mkdir -p /home/appuser \
+    && chown appuser:appuser /home/appuser
 USER appuser
 
 EXPOSE 8000

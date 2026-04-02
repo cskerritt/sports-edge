@@ -127,3 +127,32 @@ class BaseIngestor:
     def _today() -> date:
         """Return today's date (thin wrapper for easier testing)."""
         return date.today()
+
+    @staticmethod
+    def _extract_espn_injury_teams(data) -> list[dict]:
+        """Normalise ESPN injury API responses.
+
+        The ESPN API wraps injuries in ``{"injuries": [...]}`` where each entry
+        has ``id``, ``displayName``, ``injuries`` at the top level — no nested
+        ``team`` dict.  Older formats returned a bare list of team dicts with a
+        nested ``team`` key.  This helper handles both.
+        """
+        if isinstance(data, dict):
+            teams = data.get("injuries", data.get("teams", []))
+        elif isinstance(data, list):
+            teams = data
+        else:
+            return []
+
+        normalised: list[dict] = []
+        for entry in teams:
+            if not isinstance(entry, dict):
+                continue
+            # New format: id/displayName at top level
+            if "team" not in entry and "id" in entry:
+                entry = {
+                    "team": {"id": entry.get("id", ""), "displayName": entry.get("displayName", "")},
+                    "injuries": entry.get("injuries", []),
+                }
+            normalised.append(entry)
+        return normalised

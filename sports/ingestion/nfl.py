@@ -382,8 +382,7 @@ class NFLIngestor(BaseIngestor):
 
         today = self._today()
 
-        # ESPN returns a list of teams, each with an "injuries" list
-        for team_entry in data:
+        for team_entry in self._extract_espn_injury_teams(data):
             team_data = team_entry.get("team", {})
             espn_team_id = str(team_data.get("id", ""))
             team = Team.objects.filter(sport=Sport.NFL, espn_id=espn_team_id).first()
@@ -462,9 +461,14 @@ class NFLIngestor(BaseIngestor):
             return result
 
         try:
-            df = nfl.import_team_stats([season_year])
+            # nfl_data_py renamed import_team_stats → import_weekly_data in newer versions
+            import_fn = getattr(nfl, "import_team_stats", None) or getattr(nfl, "import_weekly_data", None)
+            if import_fn is None:
+                self.logger.warning("nfl_data_py has no import_team_stats or import_weekly_data — skipping")
+                return result
+            df = import_fn([season_year])
         except Exception as exc:
-            self.logger.error("nfl_data_py.import_team_stats failed: %s", exc)
+            self.logger.error("nfl_data_py team stats import failed: %s", exc)
             result["errors"] += 1
             return result
 
@@ -493,8 +497,15 @@ class NFLIngestor(BaseIngestor):
                     continue
 
                 aggregated = group[numeric_cols].mean(numeric_only=True).to_dict()
-                # Round floats for cleanliness
-                extra_stats = {k: round(v, 4) if isinstance(v, float) else v for k, v in aggregated.items()}
+                # Round floats and drop NaN values (invalid JSON for PostgreSQL)
+                extra_stats = {}
+                for k, v in aggregated.items():
+                    if isinstance(v, float):
+                        if v != v:  # NaN check
+                            continue
+                        extra_stats[k] = round(v, 4)
+                    else:
+                        extra_stats[k] = v
 
                 games_played = int(len(group))
                 obj, created = TeamSeasonStats.objects.update_or_create(

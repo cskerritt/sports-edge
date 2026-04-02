@@ -341,7 +341,7 @@ class MLBIngestor(BaseIngestor):
             result["errors"] += 1
             return result
 
-        for team_entry in data:
+        for team_entry in self._extract_espn_injury_teams(data):
             team_data = team_entry.get("team", {})
             espn_team_id = str(team_data.get("id", ""))
             team = Team.objects.filter(sport=Sport.MLB, espn_id=espn_team_id).first()
@@ -500,7 +500,10 @@ class MLBIngestor(BaseIngestor):
                             val = bat_row.get(col)
                             if isinstance(val, (int, float)):
                                 try:
-                                    extra_stats[f"bat_{col}"] = round(float(val), 4)
+                                    fval = float(val)
+                                    if fval != fval:  # NaN check
+                                        continue
+                                    extra_stats[f"bat_{col}"] = round(fval, 4)
                                 except (ValueError, TypeError):
                                     pass
 
@@ -528,7 +531,10 @@ class MLBIngestor(BaseIngestor):
                             val = pit_row.get(col)
                             if isinstance(val, (int, float)):
                                 try:
-                                    extra_stats[f"pit_{col}"] = round(float(val), 4)
+                                    fval = float(val)
+                                    if fval != fval:  # NaN check
+                                        continue
+                                    extra_stats[f"pit_{col}"] = round(fval, 4)
                                 except (ValueError, TypeError):
                                     pass
 

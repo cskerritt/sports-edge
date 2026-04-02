@@ -10,10 +10,11 @@ class EloRating(models.Model):
     rating = models.FloatField(default=1500.0)
     games_played = models.IntegerField(default=0)
     # After-game snapshot: set when this rating was established by a game result
-    game = models.OneToOneField(Game, on_delete=models.SET_NULL, null=True, blank=True, related_name="elo_snapshot")
+    game = models.ForeignKey(Game, on_delete=models.SET_NULL, null=True, blank=True, related_name="elo_snapshots")
 
     class Meta:
         ordering = ["-date"]
+        unique_together = ("team", "game")
         indexes = [
             models.Index(fields=["team", "date"]),
             models.Index(fields=["team", "season"]),

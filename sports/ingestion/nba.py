@@ -426,7 +426,7 @@ class NBAIngestor(BaseIngestor):
             result["errors"] += 1
             return result
 
-        for team_entry in data:
+        for team_entry in self._extract_espn_injury_teams(data):
             team_data = team_entry.get("team", {})
             espn_team_id = str(team_data.get("id", ""))
             team = Team.objects.filter(sport=Sport.NBA, espn_id=espn_team_id).first()

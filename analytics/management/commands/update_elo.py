@@ -150,7 +150,7 @@ class Command(BaseCommand):
                 elo_records_to_create,
                 update_conflicts=True,
                 update_fields=["rating"],
-                unique_fields=["game"],
+                unique_fields=["team", "game"],
             )
 
         self.stdout.write(

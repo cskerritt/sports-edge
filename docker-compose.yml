@@ -26,9 +26,30 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/sports_edge
       - DJANGO_SETTINGS_MODULE=sports_edge.settings.development
       - PORT=8000
+      - KALSHI_API_KEY=${KALSHI_API_KEY:-}
+      - FOOTBALL_DATA_API_KEY=${FOOTBALL_DATA_API_KEY:-}
+      - SEED_ON_FIRST_DEPLOY=true
     depends_on:
       db:
         condition: service_healthy
+
+  worker:
+    build: .
+    command: ["sh", "/worker-entrypoint.sh"]
+    environment:
+      - SECRET_KEY=local-dev-secret-key-not-for-production
+      - DEBUG=True
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/sports_edge
+      - DJANGO_SETTINGS_MODULE=sports_edge.settings.development
+      - KALSHI_API_KEY=${KALSHI_API_KEY:-}
+      - FOOTBALL_DATA_API_KEY=${FOOTBALL_DATA_API_KEY:-}
+      - MORNING_UPDATE_HOUR=6
+      - ENABLE_SEED_ON_EMPTY=true
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_started
 
 volumes:
   pgdata:
