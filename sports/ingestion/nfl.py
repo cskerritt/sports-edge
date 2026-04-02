@@ -268,99 +268,12 @@ class NFLIngestor(BaseIngestor):
     # ------------------------------------------------------------------
 
     def ingest_scores(self, game_date=None) -> dict:
+        """Fetch today's NFL games from ESPN scoreboard.
+
+        Uses the shared ESPN scoreboard method which creates games that
+        don't exist yet and updates scores for games that do.
         """
-        Update scores for games on *game_date* (defaults to today).
-
-        Strategy:
-        1. Pull ESPN scoreboard for live/completed scores.
-        2. Persist any changes to matching Game objects.
-        """
-        result = self._empty_result()
-        target_date = game_date or self._today()
-
-        if isinstance(target_date, datetime.datetime):
-            target_date = target_date.date()
-
-        date_str = target_date.strftime("%Y%m%d")
-        url = f"{self.ESPN_BASE}/scoreboard"
-        try:
-            resp = requests.get(url, params={"dates": date_str}, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as exc:
-            self.logger.error("Failed to fetch ESPN scoreboard for %s: %s", date_str, exc)
-            result["errors"] += 1
-            return result
-
-        events = data.get("events", [])
-        for event in events:
-            try:
-                espn_event_id = str(event.get("id", ""))
-                competitions = event.get("competitions", [])
-                if not competitions:
-                    continue
-                comp = competitions[0]
-
-                competitors = {c["homeAway"]: c for c in comp.get("competitors", [])}
-                home_comp = competitors.get("home", {})
-                away_comp = competitors.get("away", {})
-
-                home_score_raw = home_comp.get("score", None)
-                away_score_raw = away_comp.get("score", None)
-                try:
-                    home_score = int(home_score_raw) if home_score_raw not in (None, "") else None
-                    away_score = int(away_score_raw) if away_score_raw not in (None, "") else None
-                except (ValueError, TypeError):
-                    home_score = away_score = None
-
-                # Determine status from ESPN status type
-                state = event.get("status", {}).get("type", {}).get("state", "pre")
-                espn_description = event.get("status", {}).get("type", {}).get("description", "")
-                if state == "post":
-                    status = GameStatus.FINAL
-                elif state == "in":
-                    status = GameStatus.IN_PROGRESS
-                elif "postponed" in espn_description.lower():
-                    status = GameStatus.POSTPONED
-                elif "canceled" in espn_description.lower() or "cancelled" in espn_description.lower():
-                    status = GameStatus.CANCELLED
-                else:
-                    status = GameStatus.SCHEDULED
-
-                # Find the matching game — try espn_id first, then external_id prefix
-                game = None
-                if espn_event_id:
-                    game = Game.objects.filter(sport=Sport.NFL, espn_id=espn_event_id).first()
-                if game is None:
-                    # ESPN event id sometimes matches the nfl_data_py game_id suffix
-                    game = Game.objects.filter(
-                        sport=Sport.NFL,
-                        game_date=target_date,
-                    ).filter(
-                        home_team__espn_id=str(home_comp.get("id", ""))
-                    ).first()
-
-                if game is None:
-                    result["errors"] += 1
-                    continue
-
-                updated_fields: dict = {"espn_id": espn_event_id, "status": status}
-                if home_score is not None:
-                    updated_fields["home_score"] = home_score
-                if away_score is not None:
-                    updated_fields["away_score"] = away_score
-
-                for field, value in updated_fields.items():
-                    setattr(game, field, value)
-                game.save(update_fields=list(updated_fields.keys()) + ["updated_at"])
-                result["updated"] += 1
-
-            except Exception as exc:
-                self.logger.error("Error processing ESPN event %s: %s", event.get("id"), exc)
-                result["errors"] += 1
-
-        self._log_result("ingest_scores", result)
-        return result
+        return self.ingest_espn_scoreboard(game_date=game_date)
 
     # ------------------------------------------------------------------
     # Injuries

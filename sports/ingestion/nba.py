@@ -118,8 +118,37 @@ class NBAIngestor(BaseIngestor):
                 self.logger.error("Error upserting NBA team %s: %s", t.get("abbreviation"), exc)
                 result["errors"] += 1
 
+        # Backfill ESPN IDs from the ESPN API so ESPN scoreboard lookups work
+        self._backfill_espn_ids(league)
+
         self._log_result("ingest_teams", result)
         return result
+
+    def _backfill_espn_ids(self, league):
+        """Fetch ESPN team data and set espn_id on existing Team records."""
+        url = f"{ESPN_NBA_BASE}/teams"
+        try:
+            resp = requests.get(url, params={"limit": 100}, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            self.logger.warning("ESPN NBA teams fetch failed (espn_id backfill): %s", exc)
+            return
+
+        try:
+            raw_teams = data["sports"][0]["leagues"][0]["teams"]
+        except (KeyError, IndexError):
+            raw_teams = data.get("teams", [])
+
+        for entry in raw_teams:
+            team_data = entry.get("team", entry)
+            espn_id = str(team_data.get("id", ""))
+            abbreviation = team_data.get("abbreviation", "").upper()
+            if not espn_id or not abbreviation:
+                continue
+            Team.objects.filter(
+                sport=Sport.NBA, abbreviation=abbreviation, espn_id=""
+            ).update(espn_id=espn_id)
 
     # ------------------------------------------------------------------
     # Schedule
@@ -314,98 +343,12 @@ class NBAIngestor(BaseIngestor):
     # ------------------------------------------------------------------
 
     def ingest_scores(self, game_date=None) -> dict:
-        """Fetch live / completed scores using nba_api ScoreboardV2."""
-        result = self._empty_result()
+        """Fetch today's NBA games from ESPN scoreboard.
 
-        try:
-            from nba_api.stats.endpoints import scoreboardv2
-        except ImportError:
-            self.logger.error("nba_api is not installed.")
-            result["errors"] += 1
-            return result
-
-        target_date = game_date or self._today()
-        if isinstance(target_date, datetime.datetime):
-            target_date = target_date.date()
-
-        date_str = target_date.strftime("%m/%d/%Y")
-
-        try:
-            time.sleep(NBA_API_SLEEP)
-            board = scoreboardv2.ScoreboardV2(game_date=date_str, league_id="00")
-            game_header_df = board.game_header.get_data_frame()
-            line_score_df = board.line_score.get_data_frame()
-        except Exception as exc:
-            self.logger.error("ScoreboardV2 failed for %s: %s", date_str, exc)
-            result["errors"] += 1
-            return result
-
-        if game_header_df is None or game_header_df.empty:
-            self.logger.info("No NBA games found on %s", target_date)
-            return result
-
-        # Build score lookup: GAME_ID → {home_team_id: score, visitor_team_id: score}
-        score_map: dict = {}
-        if line_score_df is not None and not line_score_df.empty:
-            for _, row in line_score_df.iterrows():
-                gid = str(row.get("GAME_ID", ""))
-                team_id = row.get("TEAM_ID")
-                pts = row.get("PTS", None)
-                try:
-                    pts = int(pts) if pts is not None else None
-                except (ValueError, TypeError):
-                    pts = None
-                if gid not in score_map:
-                    score_map[gid] = {}
-                score_map[gid][team_id] = pts
-
-        for _, row in game_header_df.iterrows():
-            try:
-                game_id = str(row.get("GAME_ID", ""))
-                home_team_id = row.get("HOME_TEAM_ID")
-                visitor_team_id = row.get("VISITOR_TEAM_ID")
-                game_status_id = row.get("GAME_STATUS_ID", 1)
-
-                status = NBA_GAME_STATUS_MAP.get(int(game_status_id), GameStatus.SCHEDULED)
-
-                game_obj = Game.objects.filter(sport=Sport.NBA, external_id=game_id).first()
-                if game_obj is None:
-                    # Try to find by team IDs and date
-                    home_team = Team.objects.filter(sport=Sport.NBA, nba_api_id=home_team_id).first()
-                    away_team = Team.objects.filter(sport=Sport.NBA, nba_api_id=visitor_team_id).first()
-                    if home_team and away_team:
-                        game_obj = Game.objects.filter(
-                            sport=Sport.NBA,
-                            game_date=target_date,
-                            home_team=home_team,
-                            away_team=away_team,
-                        ).first()
-
-                if game_obj is None:
-                    result["errors"] += 1
-                    continue
-
-                scores = score_map.get(game_id, {})
-                home_score = scores.get(home_team_id)
-                away_score = scores.get(visitor_team_id)
-
-                update_fields = {"status": status}
-                if home_score is not None:
-                    update_fields["home_score"] = home_score
-                if away_score is not None:
-                    update_fields["away_score"] = away_score
-
-                for k, v in update_fields.items():
-                    setattr(game_obj, k, v)
-                game_obj.save(update_fields=list(update_fields.keys()) + ["updated_at"])
-                result["updated"] += 1
-
-            except Exception as exc:
-                self.logger.error("Error processing NBA scoreboard row: %s", exc)
-                result["errors"] += 1
-
-        self._log_result("ingest_scores", result)
-        return result
+        Uses the shared ESPN scoreboard method which creates games that
+        don't exist yet and updates scores for games that do.
+        """
+        return self.ingest_espn_scoreboard(game_date=game_date)
 
     # ------------------------------------------------------------------
     # Injuries

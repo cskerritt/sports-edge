@@ -1,5 +1,22 @@
+import datetime
 import logging
 from datetime import date
+
+import requests
+
+from sports.models import Game, GameStatus, League, Season, Team
+
+
+# ESPN sport slugs for scoreboard endpoints
+ESPN_SPORT_SLUGS = {
+    "NFL": "football/nfl",
+    "NBA": "basketball/nba",
+    "NHL": "hockey/nhl",
+    "MLB": "baseball/mlb",
+    "SOCCER": "soccer/eng.1",
+}
+
+ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports"
 
 
 class BaseIngestor:
@@ -127,6 +144,177 @@ class BaseIngestor:
     def _today() -> date:
         """Return today's date (thin wrapper for easier testing)."""
         return date.today()
+
+    def ingest_espn_scoreboard(self, game_date=None) -> dict:
+        """Fetch today's games from ESPN and create/update Game records.
+
+        This is the primary way to ensure today's games exist in the database.
+        ESPN returns scheduled, in-progress, and completed games.  Games that
+        don't yet exist in the DB are **created** so the dashboard can display
+        them immediately.
+
+        Works for NFL, NBA, NHL, MLB.
+        """
+        result = self._empty_result()
+        target_date = game_date or self._today()
+        if isinstance(target_date, datetime.datetime):
+            target_date = target_date.date()
+
+        slug = ESPN_SPORT_SLUGS.get(self.sport)
+        if not slug:
+            return result
+
+        date_str = target_date.strftime("%Y%m%d")
+        url = f"{ESPN_BASE}/{slug}/scoreboard"
+
+        try:
+            resp = requests.get(url, params={"dates": date_str}, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            self.logger.error("ESPN scoreboard fetch failed for %s: %s", date_str, exc)
+            result["errors"] += 1
+            return result
+
+        events = data.get("events", [])
+        for event in events:
+            try:
+                espn_event_id = str(event.get("id", ""))
+                competitions = event.get("competitions", [])
+                if not competitions:
+                    continue
+                comp = competitions[0]
+
+                competitors = {c["homeAway"]: c for c in comp.get("competitors", [])}
+                home_comp = competitors.get("home", {})
+                away_comp = competitors.get("away", {})
+
+                home_espn_id = str(home_comp.get("id", ""))
+                away_espn_id = str(away_comp.get("id", ""))
+                home_abbr = home_comp.get("team", {}).get("abbreviation", "").upper()
+                away_abbr = away_comp.get("team", {}).get("abbreviation", "").upper()
+
+                # Resolve teams
+                home_team = (
+                    Team.objects.filter(sport=self.sport, espn_id=home_espn_id).first()
+                    or Team.objects.filter(sport=self.sport, abbreviation=home_abbr).first()
+                )
+                away_team = (
+                    Team.objects.filter(sport=self.sport, espn_id=away_espn_id).first()
+                    or Team.objects.filter(sport=self.sport, abbreviation=away_abbr).first()
+                )
+
+                if not home_team or not away_team:
+                    self.logger.debug(
+                        "Could not resolve teams for ESPN event %s (%s vs %s)",
+                        espn_event_id, away_abbr, home_abbr,
+                    )
+                    result["errors"] += 1
+                    continue
+
+                # Scores
+                home_score_raw = home_comp.get("score", None)
+                away_score_raw = away_comp.get("score", None)
+                try:
+                    home_score = int(home_score_raw) if home_score_raw not in (None, "") else None
+                    away_score = int(away_score_raw) if away_score_raw not in (None, "") else None
+                except (ValueError, TypeError):
+                    home_score = away_score = None
+
+                # Status
+                state = event.get("status", {}).get("type", {}).get("state", "pre")
+                espn_desc = event.get("status", {}).get("type", {}).get("description", "")
+                if state == "post":
+                    status = GameStatus.FINAL
+                elif state == "in":
+                    status = GameStatus.IN_PROGRESS
+                elif "postponed" in espn_desc.lower():
+                    status = GameStatus.POSTPONED
+                elif "canceled" in espn_desc.lower() or "cancelled" in espn_desc.lower():
+                    status = GameStatus.CANCELLED
+                else:
+                    status = GameStatus.SCHEDULED
+
+                # Game time
+                game_time = None
+                event_date_raw = event.get("date", "")
+                if event_date_raw:
+                    try:
+                        dt = datetime.datetime.fromisoformat(event_date_raw.replace("Z", "+00:00"))
+                        game_time = dt.time()
+                    except (ValueError, TypeError):
+                        pass
+
+                # Venue
+                venue = comp.get("venue", {}).get("fullName", "")
+
+                # Find or create the Season
+                year = target_date.year
+                league = home_team.league
+                season = None
+                if league:
+                    season, _ = Season.objects.get_or_create(
+                        sport=self.sport,
+                        league=league,
+                        year=year,
+                        defaults={"label": str(year), "is_current": True},
+                    )
+
+                # Try to find existing game by espn_id, then external_id, then team+date
+                game_obj = Game.objects.filter(sport=self.sport, espn_id=espn_event_id).first()
+                if game_obj is None:
+                    game_obj = Game.objects.filter(
+                        sport=self.sport,
+                        game_date=target_date,
+                        home_team=home_team,
+                        away_team=away_team,
+                    ).first()
+
+                if game_obj is None:
+                    # CREATE the game
+                    game_obj = Game.objects.create(
+                        sport=self.sport,
+                        external_id=f"ESPN:{espn_event_id}",
+                        espn_id=espn_event_id,
+                        season=season,
+                        home_team=home_team,
+                        away_team=away_team,
+                        game_date=target_date,
+                        game_time=game_time,
+                        status=status,
+                        home_score=home_score,
+                        away_score=away_score,
+                        venue=venue,
+                    )
+                    result["created"] += 1
+                else:
+                    # UPDATE existing game
+                    update_kwargs: dict = {
+                        "status": status,
+                        "espn_id": espn_event_id,
+                    }
+                    if home_score is not None:
+                        update_kwargs["home_score"] = home_score
+                    if away_score is not None:
+                        update_kwargs["away_score"] = away_score
+                    if game_time and not game_obj.game_time:
+                        update_kwargs["game_time"] = game_time
+                    if venue and not game_obj.venue:
+                        update_kwargs["venue"] = venue
+
+                    for k, v in update_kwargs.items():
+                        setattr(game_obj, k, v)
+                    game_obj.save(update_fields=list(update_kwargs.keys()) + ["updated_at"])
+                    result["updated"] += 1
+
+            except Exception as exc:
+                self.logger.error(
+                    "Error processing ESPN event %s: %s", event.get("id"), exc
+                )
+                result["errors"] += 1
+
+        self._log_result("ingest_espn_scoreboard", result)
+        return result
 
     @staticmethod
     def _extract_espn_injury_teams(data) -> list[dict]:

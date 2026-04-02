@@ -5,6 +5,11 @@ env = environ.Env()
 
 DEBUG = False
 
+# In production, DATABASE_URL must be set (no SQLite fallback)
+DATABASES = {
+    "default": env.db("DATABASE_URL")
+}
+
 CSRF_TRUSTED_ORIGINS = env.list(
     "CSRF_TRUSTED_ORIGINS",
     default=["https://*.up.railway.app"],

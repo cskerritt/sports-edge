@@ -144,8 +144,37 @@ class NHLIngestor(BaseIngestor):
                 self.logger.error("Error upserting NHL team %s: %s", t.get("triCode"), exc)
                 result["errors"] += 1
 
+        # Backfill ESPN IDs
+        self._backfill_espn_ids()
+
         self._log_result("ingest_teams", result)
         return result
+
+    def _backfill_espn_ids(self):
+        """Fetch ESPN team data and set espn_id on existing Team records."""
+        url = f"{ESPN_NHL_BASE}/teams"
+        try:
+            resp = requests.get(url, params={"limit": 100}, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            self.logger.warning("ESPN NHL teams fetch failed (espn_id backfill): %s", exc)
+            return
+
+        try:
+            raw_teams = data["sports"][0]["leagues"][0]["teams"]
+        except (KeyError, IndexError):
+            raw_teams = data.get("teams", [])
+
+        for entry in raw_teams:
+            team_data = entry.get("team", entry)
+            espn_id = str(team_data.get("id", ""))
+            abbreviation = team_data.get("abbreviation", "").upper()
+            if not espn_id or not abbreviation:
+                continue
+            Team.objects.filter(
+                sport=Sport.NHL, abbreviation=abbreviation, espn_id=""
+            ).update(espn_id=espn_id)
 
     # ------------------------------------------------------------------
     # Schedule
@@ -279,66 +308,12 @@ class NHLIngestor(BaseIngestor):
     # ------------------------------------------------------------------
 
     def ingest_scores(self, game_date=None) -> dict:
-        """Fetch completed/live scores for *game_date* using GET /score/{date}."""
-        result = self._empty_result()
+        """Fetch today's NHL games from ESPN scoreboard.
 
-        target_date = game_date or self._today()
-        if isinstance(target_date, datetime.datetime):
-            target_date = target_date.date()
-
-        date_str = target_date.strftime("%Y-%m-%d")
-        url = f"{self.BASE}/score/{date_str}"
-
-        try:
-            resp = requests.get(url, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as exc:
-            self.logger.error("NHL score fetch failed for %s: %s", date_str, exc)
-            result["errors"] += 1
-            return result
-
-        for game in data.get("games", []):
-            try:
-                game_id = str(game.get("id", ""))
-                if not game_id:
-                    continue
-
-                game_state = game.get("gameState", "FUT").upper()
-                status = NHL_GAME_STATE_MAP.get(game_state, GameStatus.SCHEDULED)
-
-                home_team_data = game.get("homeTeam", {})
-                away_team_data = game.get("awayTeam", {})
-                home_score_raw = home_team_data.get("score")
-                away_score_raw = away_team_data.get("score")
-                try:
-                    home_score = int(home_score_raw) if home_score_raw is not None else None
-                    away_score = int(away_score_raw) if away_score_raw is not None else None
-                except (ValueError, TypeError):
-                    home_score = away_score = None
-
-                game_obj = Game.objects.filter(sport=Sport.NHL, external_id=game_id).first()
-                if game_obj is None:
-                    result["errors"] += 1
-                    continue
-
-                update_fields = {"status": status}
-                if home_score is not None:
-                    update_fields["home_score"] = home_score
-                if away_score is not None:
-                    update_fields["away_score"] = away_score
-
-                for k, v in update_fields.items():
-                    setattr(game_obj, k, v)
-                game_obj.save(update_fields=list(update_fields.keys()) + ["updated_at"])
-                result["updated"] += 1
-
-            except Exception as exc:
-                self.logger.error("Error processing NHL score for game %s: %s", game.get("id"), exc)
-                result["errors"] += 1
-
-        self._log_result("ingest_scores", result)
-        return result
+        Uses the shared ESPN scoreboard method which creates games that
+        don't exist yet and updates scores for games that do.
+        """
+        return self.ingest_espn_scoreboard(game_date=game_date)
 
     # ------------------------------------------------------------------
     # Injuries

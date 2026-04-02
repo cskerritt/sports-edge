@@ -116,8 +116,37 @@ class MLBIngestor(BaseIngestor):
                 self.logger.error("Error upserting MLB team %s: %s", t.get("abbreviation"), exc)
                 result["errors"] += 1
 
+        # Backfill ESPN IDs
+        self._backfill_espn_ids()
+
         self._log_result("ingest_teams", result)
         return result
+
+    def _backfill_espn_ids(self):
+        """Fetch ESPN team data and set espn_id on existing Team records."""
+        url = f"{ESPN_MLB_BASE}/teams"
+        try:
+            resp = requests.get(url, params={"limit": 100}, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            self.logger.warning("ESPN MLB teams fetch failed (espn_id backfill): %s", exc)
+            return
+
+        try:
+            raw_teams = data["sports"][0]["leagues"][0]["teams"]
+        except (KeyError, IndexError):
+            raw_teams = data.get("teams", [])
+
+        for entry in raw_teams:
+            team_data = entry.get("team", entry)
+            espn_id = str(team_data.get("id", ""))
+            abbreviation = team_data.get("abbreviation", "").upper()
+            if not espn_id or not abbreviation:
+                continue
+            Team.objects.filter(
+                sport=Sport.MLB, abbreviation=abbreviation, espn_id=""
+            ).update(espn_id=espn_id)
 
     # ------------------------------------------------------------------
     # Schedule
@@ -240,87 +269,12 @@ class MLBIngestor(BaseIngestor):
     # ------------------------------------------------------------------
 
     def ingest_scores(self, game_date=None) -> dict:
+        """Fetch today's MLB games from ESPN scoreboard.
+
+        Uses the shared ESPN scoreboard method which creates games that
+        don't exist yet and updates scores for games that do.
         """
-        Update scores for games on *game_date* using the Stats API schedule endpoint
-        with linescore hydration.
-        """
-        result = self._empty_result()
-
-        target_date = game_date or self._today()
-        if isinstance(target_date, datetime.datetime):
-            target_date = target_date.date()
-
-        date_str = target_date.strftime("%Y-%m-%d")
-        url = f"{self.STATSAPI_BASE}/schedule"
-        params = {
-            "date": date_str,
-            "sportId": 1,
-            "hydrate": "linescore,team",
-        }
-        try:
-            resp = requests.get(url, params=params, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as exc:
-            self.logger.error("Failed to fetch MLB scores for %s: %s", date_str, exc)
-            result["errors"] += 1
-            return result
-
-        for date_entry in data.get("dates", []):
-            for game in date_entry.get("games", []):
-                try:
-                    game_pk = str(game.get("gamePk", ""))
-                    if not game_pk:
-                        continue
-
-                    abstract_state = game.get("status", {}).get("abstractGameState", "Preview")
-                    status = MLB_ABSTRACT_STATE_MAP.get(abstract_state, GameStatus.SCHEDULED)
-
-                    teams = game.get("teams", {})
-                    home_score_raw = teams.get("home", {}).get("score")
-                    away_score_raw = teams.get("away", {}).get("score")
-                    try:
-                        home_score = int(home_score_raw) if home_score_raw is not None else None
-                        away_score = int(away_score_raw) if away_score_raw is not None else None
-                    except (ValueError, TypeError):
-                        home_score = away_score = None
-
-                    # Per-inning scores from linescore
-                    linescore = game.get("linescore", {})
-                    innings = linescore.get("innings", [])
-                    home_period_scores: dict = {}
-                    away_period_scores: dict = {}
-                    for inning in innings:
-                        inning_num = str(inning.get("num", ""))
-                        home_period_scores[inning_num] = inning.get("home", {}).get("runs")
-                        away_period_scores[inning_num] = inning.get("away", {}).get("runs")
-
-                    game_obj = Game.objects.filter(sport=Sport.MLB, external_id=game_pk).first()
-                    if game_obj is None:
-                        result["errors"] += 1
-                        continue
-
-                    update_kwargs: dict = {"status": status}
-                    if home_score is not None:
-                        update_kwargs["home_score"] = home_score
-                    if away_score is not None:
-                        update_kwargs["away_score"] = away_score
-                    if home_period_scores:
-                        update_kwargs["home_period_scores"] = home_period_scores
-                    if away_period_scores:
-                        update_kwargs["away_period_scores"] = away_period_scores
-
-                    for k, v in update_kwargs.items():
-                        setattr(game_obj, k, v)
-                    game_obj.save(update_fields=list(update_kwargs.keys()) + ["updated_at"])
-                    result["updated"] += 1
-
-                except Exception as exc:
-                    self.logger.error("Error updating MLB score for game %s: %s", game.get("gamePk"), exc)
-                    result["errors"] += 1
-
-        self._log_result("ingest_scores", result)
-        return result
+        return self.ingest_espn_scoreboard(game_date=game_date)
 
     # ------------------------------------------------------------------
     # Injuries
