@@ -1,0 +1,10 @@
+{# Usage: {% include "dashboard/partials/upgrade_prompt.html" with tier="PRO" feature="predictions" %} #}
+<div class="bg-slate-800/50 border border-dashed border-slate-600 rounded-xl p-6 text-center">
+  <p class="text-slate-400 text-sm mb-3">
+    🔒 Upgrade to <span class="font-semibold text-white">{{ tier }}</span> to unlock {{ feature }}
+  </p>
+  <a href="{% url 'subscriptions:checkout' %}?tier={{ tier }}"
+     class="inline-block px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors">
+    Upgrade Now
+  </a>
+</div>

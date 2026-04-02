@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Upgrade Required{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[60vh]">
+  <div class="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 text-center">
+    <div class="text-5xl mb-4">🔒</div>
+    <h1 class="text-2xl font-bold text-white mb-2">{{ required_tier }} Feature</h1>
+    <p class="text-slate-400 mb-6">
+      This feature requires a <span class="font-semibold text-white">{{ required_tier }}</span> subscription.
+      {% if required_tier == "PRO" %}Unlock predictions, edge alerts, and Elo ratings for $19/mo.
+      {% elif required_tier == "ELITE" %}Get everything including player props, backtests, and API access for $49/mo.
+      {% endif %}
+    </p>
+
+    {% if error %}
+    <p class="text-amber-400 text-sm mb-4">{{ error }}</p>
+    {% endif %}
+
+    <div class="space-y-3">
+      <a href="{% url 'subscriptions:checkout' %}?tier={{ required_tier }}"
+         class="block w-full py-3 px-4 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-xl transition-colors">
+        Upgrade to {{ required_tier }}
+      </a>
+      <a href="{% url 'dashboard:index' %}"
+         class="block w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium rounded-xl transition-colors">
+        Back to Dashboard
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
