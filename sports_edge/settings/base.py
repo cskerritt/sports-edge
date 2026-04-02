@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "markets",
     "dashboard",
     "bankroll",
+    "subscriptions",
 ]
 
 MIDDLEWARE = [
@@ -104,3 +105,10 @@ KALSHI_API_KEY = env("KALSHI_API_KEY", default="")
 EDGE_ALERT_THRESHOLD = 0.05   # 5% minimum edge to flag
 DEFAULT_KELLY_FRACTION = 0.25  # quarter-Kelly for safety
 MAX_KELLY_FRACTION = 0.10      # cap single bet at 10% of bankroll
+
+# Stripe payments
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
+STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+STRIPE_PRO_PRICE_ID = env("STRIPE_PRO_PRICE_ID", default="")
+STRIPE_ELITE_PRICE_ID = env("STRIPE_ELITE_PRICE_ID", default="")
