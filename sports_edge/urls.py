@@ -11,6 +11,14 @@ def healthcheck(request):
     return JsonResponse({"status": "ok"})
 
 
+def landing_page(request):
+    if request.user.is_authenticated:
+        from django.shortcuts import redirect
+        return redirect("dashboard:index")
+    from django.shortcuts import render
+    return render(request, "landing.html")
+
+
 urlpatterns = [
     path("healthz/", healthcheck, name="healthcheck"),
     path("admin/", admin.site.urls),
@@ -18,5 +26,6 @@ urlpatterns = [
     path("dashboard/", include("dashboard.urls")),
     path("bankroll/", include("bankroll.urls")),
     path("markets/", include("markets.urls")),
-    path("", include(("dashboard.urls", "dashboard"), namespace="dashboard_root")),  # root redirects to dashboard
+    path("subscriptions/", include("subscriptions.urls")),
+    path("", landing_page, name="landing"),
 ]
