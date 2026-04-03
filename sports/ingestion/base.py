@@ -18,6 +18,18 @@ ESPN_SPORT_SLUGS = {
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports"
 
+# ESPN sometimes uses different abbreviations than nba_api / other sources.
+# Map ESPN abbreviation → DB abbreviation for known mismatches.
+ESPN_ABBR_ALIASES = {
+    "GS": "GSW",     # Golden State Warriors
+    "NO": "NOP",     # New Orleans Pelicans
+    "SA": "SAS",     # San Antonio Spurs
+    "WSH": "WAS",    # Washington (sometimes)
+    "PHO": "PHX",    # Phoenix (sometimes)
+    "UTAH": "UTA",   # Utah Jazz
+    "NY": "NYK",     # New York Knicks (sometimes)
+}
+
 
 class BaseIngestor:
     """
@@ -194,6 +206,10 @@ class BaseIngestor:
                 away_espn_id = str(away_comp.get("id", ""))
                 home_abbr = home_comp.get("team", {}).get("abbreviation", "").upper()
                 away_abbr = away_comp.get("team", {}).get("abbreviation", "").upper()
+
+                # Normalize ESPN abbreviation mismatches
+                home_abbr = ESPN_ABBR_ALIASES.get(home_abbr, home_abbr)
+                away_abbr = ESPN_ABBR_ALIASES.get(away_abbr, away_abbr)
 
                 # Resolve teams
                 home_team = (
