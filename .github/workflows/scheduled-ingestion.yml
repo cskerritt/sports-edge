@@ -1,0 +1,64 @@
+name: Scheduled Data Ingestion
+
+on:
+  schedule:
+    # All times in UTC — convert from Eastern:
+    # 6am ET = 10:00 UTC (EDT) / 11:00 UTC (EST)
+    # 12pm ET = 16:00 UTC (EDT) / 17:00 UTC (EST)
+    # 6pm ET = 22:00 UTC (EDT) / 23:00 UTC (EST)
+    # 10pm ET = 02:00 UTC next day (EDT) / 03:00 UTC (EST)
+    - cron: "0 10 * * *"   # Morning update ~6am ET
+    - cron: "0 16 * * *"   # Midday refresh ~12pm ET
+    - cron: "0 22 * * *"   # Evening refresh ~6pm ET
+    - cron: "0 2 * * *"    # Late night update ~10pm ET
+  workflow_dispatch:
+    inputs:
+      full_ingest:
+        description: "Run full ingest (teams + schedules)"
+        type: boolean
+        default: false
+      sport:
+        description: "Limit to one sport (leave empty for all)"
+        type: choice
+        options:
+          - ""
+          - NBA
+          - NFL
+          - NHL
+          - MLB
+
+jobs:
+  trigger-ingestion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger cron endpoint
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # Build the URL
+          URL="${SITE_URL}/cron/update/?token=${CRON_SECRET}"
+
+          # Add full ingest flag if set
+          if [ "${{ github.event.inputs.full_ingest }}" = "true" ]; then
+            URL="${URL}&full=1"
+          fi
+
+          # Add sport filter if set
+          SPORT="${{ github.event.inputs.sport }}"
+          if [ -n "$SPORT" ]; then
+            URL="${URL}&sport=${SPORT}"
+          fi
+
+          echo "Triggering ingestion..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" "$URL")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+
+          echo "Response: $BODY"
+          echo "HTTP Status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Cron endpoint returned HTTP $HTTP_CODE"
+            exit 1
+          fi
