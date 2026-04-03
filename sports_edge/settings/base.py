@@ -113,3 +113,6 @@ STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
 STRIPE_PRO_PRICE_ID = env("STRIPE_PRO_PRICE_ID", default="")
 STRIPE_ELITE_PRICE_ID = env("STRIPE_ELITE_PRICE_ID", default="")
+
+# Cron endpoint secret (set to a random string in production)
+CRON_SECRET = env("CRON_SECRET", default="")

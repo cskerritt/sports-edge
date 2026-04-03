@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path, include
 
+from sports.views import cron_update
+
 admin.site.site_header = "Sports Edge Admin"
 admin.site.site_title = "Sports Edge"
 admin.site.index_title = "Analytics Dashboard"
@@ -27,5 +29,6 @@ urlpatterns = [
     path("bankroll/", include("bankroll.urls")),
     path("markets/", include("markets.urls")),
     path("subscriptions/", include("subscriptions.urls")),
+    path("cron/update/", cron_update, name="cron_update"),
     path("", landing_page, name="landing"),
 ]
