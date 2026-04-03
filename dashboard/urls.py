@@ -11,4 +11,6 @@ urlpatterns = [
     path("backtest/", views.backtest_results, name="backtest"),
     path("sport/<str:sport>/", views.sport_detail, name="sport_detail"),
     path("game/<int:pk>/", views.game_detail, name="game_detail"),
+    path("refresh/", views.refresh_data, name="refresh_data"),
+    path("refresh/status/", views.refresh_status, name="refresh_status"),
 ]

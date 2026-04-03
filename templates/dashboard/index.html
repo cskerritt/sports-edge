@@ -13,13 +13,31 @@
       <h1 class="text-2xl font-bold text-white">Dashboard</h1>
       <p class="text-slate-400 text-sm mt-0.5">{% now "l, F j, Y" %} &mdash; Coinbase Prediction Markets</p>
     </div>
-    <a href="{% url 'bankroll:log_bet' %}"
-       class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-xl transition-colors">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-      </svg>
-      Log Bet
-    </a>
+    <div class="flex items-center gap-3">
+      <!-- Refresh data button -->
+      <div x-data="{ loading: false }">
+        <form method="post" action="{% url 'dashboard:refresh_data' %}"
+              @submit="loading = true; setTimeout(() => { loading = false; location.reload(); }, 8000)">
+          {% csrf_token %}
+          <button type="submit"
+                  :disabled="loading"
+                  class="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-wait">
+            <svg class="w-4 h-4" :class="loading && 'animate-spin'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span x-text="loading ? 'Updating...' : 'Update Data'"></span>
+          </button>
+        </form>
+      </div>
+
+      <a href="{% url 'bankroll:log_bet' %}"
+         class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-xl transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Log Bet
+      </a>
+    </div>
   </div>
 
   <!-- ===== STAT CARDS ROW ===== -->

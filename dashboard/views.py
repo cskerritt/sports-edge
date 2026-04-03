@@ -1,18 +1,21 @@
 import json
+import threading
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-
-from subscriptions.decorators import requires_tier
 from django.db.models import Avg, Count, F, FloatField, Prefetch, Q, Sum
 from django.db.models.functions import Coalesce
-from django.shortcuts import get_object_or_404, render
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from analytics.models import BacktestResult, EloRating, GamePrediction
 from bankroll.models import BetOutcome, BetRecord
 from markets.models import EdgeAlert, MarketContract
 from sports.models import Game, GameStatus, InjuryReport, Sport
+from subscriptions.decorators import requires_tier
 
 
 # ---------------------------------------------------------------------------
@@ -443,3 +446,65 @@ def game_detail(request, pk):
         "away_props": away_props,
     }
     return render(request, "dashboard/game_detail.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Manual data refresh
+# ---------------------------------------------------------------------------
+
+# Simple lock to prevent concurrent refreshes
+_refresh_lock = threading.Lock()
+_refresh_running = False
+
+
+@login_required
+@require_POST
+def refresh_data(request):
+    """Manually trigger data ingestion from the dashboard."""
+    global _refresh_running
+
+    if _refresh_running:
+        if _is_htmx(request):
+            return JsonResponse({"status": "already_running"})
+        messages.warning(request, "A data refresh is already running. Please wait.")
+        return redirect("dashboard:index")
+
+    sport_filter = request.POST.get("sport", "").upper()
+
+    def _run():
+        global _refresh_running
+        _refresh_running = True
+        try:
+            from sports.ingestion.nba import NBAIngestor
+            from sports.ingestion.nfl import NFLIngestor
+            from sports.ingestion.nhl import NHLIngestor
+            from sports.ingestion.mlb import MLBIngestor
+
+            ingestors = [NBAIngestor, NFLIngestor, NHLIngestor, MLBIngestor]
+
+            for cls in ingestors:
+                if sport_filter and cls.sport != sport_filter:
+                    continue
+                try:
+                    ing = cls()
+                    ing.ingest_teams()
+                    ing.ingest_scores()
+                except Exception:
+                    pass  # logged by ingestor
+        finally:
+            _refresh_running = False
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    if _is_htmx(request):
+        return JsonResponse({"status": "started"})
+
+    messages.success(request, "Data refresh started! Games will appear in a few seconds. Reload the page shortly.")
+    return redirect("dashboard:index")
+
+
+@login_required
+def refresh_status(request):
+    """Check if a refresh is currently running (for HTMX polling)."""
+    return JsonResponse({"running": _refresh_running})
