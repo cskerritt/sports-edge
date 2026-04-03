@@ -114,5 +114,9 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
 STRIPE_PRO_PRICE_ID = env("STRIPE_PRO_PRICE_ID", default="")
 STRIPE_ELITE_PRICE_ID = env("STRIPE_ELITE_PRICE_ID", default="")
 
+# Resend email
+RESEND_API_KEY = env("RESEND_API_KEY", default="")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Sports Edge <noreply@sports-edge.com>")
+
 # Cron endpoint secret (set to a random string in production)
 CRON_SECRET = env("CRON_SECRET", default="")

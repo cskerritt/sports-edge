@@ -249,7 +249,33 @@ class EdgeCalculator:
             market_prob,
             kf,
         )
+
+        # Send email notifications for new alerts
+        if created:
+            self._notify_subscribers(alert)
+
         return alert
+
+    def _notify_subscribers(self, alert: EdgeAlert) -> None:
+        """Send edge alert emails to Pro+ users who opted in."""
+        try:
+            from accounts.models import UserProfile
+            from subscriptions.models import UserSubscription
+
+            # Find users who have email_alerts enabled and are Pro+
+            profiles = UserProfile.objects.filter(
+                email_alerts=True,
+                min_edge_alert__lte=abs(alert.edge),
+            ).select_related("user")
+
+            from sports_edge.email import send_edge_alert_email
+
+            for profile in profiles:
+                sub = getattr(profile.user, "subscription", None)
+                if sub and sub.has_tier("PRO"):
+                    send_edge_alert_email(profile.user, alert)
+        except Exception as exc:
+            self.logger.warning("Failed to send edge alert emails: %s", exc)
 
     # ------------------------------------------------------------------
     # Batch processing

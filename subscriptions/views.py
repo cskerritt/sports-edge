@@ -145,6 +145,10 @@ def _handle_checkout_completed(session):
     sub.save(update_fields=["tier", "status", "stripe_subscription_id",
                              "stripe_customer_id", "updated_at"])
 
+    # Send welcome email
+    from sports_edge.email import send_subscription_welcome_email
+    send_subscription_welcome_email(sub.user, tier)
+
 
 def _handle_subscription_updated(subscription):
     """Sync subscription status changes."""
