@@ -264,7 +264,7 @@ def sport_detail(request, sport):
         from django.http import Http404
         raise Http404(f"Unknown sport: {sport}")
 
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     upcoming_games = (
         Game.objects

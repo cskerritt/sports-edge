@@ -18,10 +18,10 @@ Usage:
 
 import logging
 import time
-from datetime import date
 
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 logger = logging.getLogger("morning_update")
 
@@ -61,7 +61,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         sport_filter = options["sport"]
-        season = options["season"] or date.today().year
+        season = options["season"] or timezone.localdate().year
         skip_markets = options["skip_markets"]
         full_ingest = options["full_ingest"]
         days_ahead = options["days_ahead"]
@@ -71,7 +71,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.MIGRATE_HEADING("=" * 60))
         self.stdout.write(self.style.MIGRATE_HEADING("  SportsEdge Morning Update"))
-        self.stdout.write(self.style.MIGRATE_HEADING(f"  {date.today().isoformat()}"))
+        self.stdout.write(self.style.MIGRATE_HEADING(f"  {timezone.localdate().isoformat()}"))
         self.stdout.write(self.style.MIGRATE_HEADING("=" * 60))
         self.stdout.write("")
 

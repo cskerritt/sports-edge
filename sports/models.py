@@ -97,7 +97,9 @@ class Team(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.name} ({self.sport})"
+        if self.city:
+            return f"{self.city} {self.name}"
+        return self.name
 
     @property
     def full_name(self):
@@ -187,7 +189,7 @@ class Game(models.Model):
 
     @property
     def is_today(self):
-        return self.game_date == timezone.now().date()
+        return self.game_date == timezone.localdate()
 
     @property
     def prediction(self):

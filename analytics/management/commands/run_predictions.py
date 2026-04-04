@@ -53,7 +53,7 @@ class Command(BaseCommand):
         model_version = options["model_version"]
         force = options["force"]
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         cutoff = today + timedelta(days=days_ahead)
 
         sports_to_process = (
@@ -124,7 +124,7 @@ class Command(BaseCommand):
         upcoming_games = (
             Game.objects.filter(
                 sport=sport,
-                status=GameStatus.SCHEDULED,
+                status__in=[GameStatus.SCHEDULED, GameStatus.IN_PROGRESS],
                 game_date__gte=today,
                 game_date__lte=cutoff,
             )
