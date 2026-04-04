@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load subscription_tags %}
 
 {% block title %}{{ sport_name }} Analytics{% endblock %}
 
@@ -41,11 +40,8 @@
     </div>
   </div>
 
-  <!-- Model accuracy card + top edges row -->
-  {% if_tier "ELITE" %}
+  <!-- Model accuracy card row -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-    <!-- Accuracy -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
       <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Model Accuracy</p>
       {% if backtest %}
@@ -62,7 +58,6 @@
       {% endif %}
     </div>
 
-    <!-- Brier Score -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
       <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Brier Score</p>
       {% if backtest %}
@@ -79,7 +74,6 @@
       {% endif %}
     </div>
 
-    <!-- ROI -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
       <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Model ROI</p>
       {% if backtest %}
@@ -94,15 +88,11 @@
       {% endif %}
     </div>
   </div>
-  {% else_tier %}
-  {% include "dashboard/partials/upgrade_prompt.html" with tier="ELITE" feature="historical backtests" %}
-  {% endif_tier %}
 
   <!-- Elo + Upcoming games row -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
     <!-- Elo Rankings -->
-    {% if_tier "PRO" %}
     <div class="bg-slate-800 border border-slate-700 rounded-xl">
       <div class="px-5 py-4 border-b border-slate-700">
         <h2 class="font-semibold text-white">Elo Power Rankings</h2>
@@ -143,9 +133,6 @@
         {% endfor %}
       </div>
     </div>
-    {% else_tier %}
-    {% include "dashboard/partials/upgrade_prompt.html" with tier="PRO" feature="Elo ratings and rankings" %}
-    {% endif_tier %}
 
     <!-- Upcoming Games -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl">
@@ -160,7 +147,7 @@
             <p class="text-sm font-medium text-slate-200 group-hover:text-white transition-colors">
               {{ game.away_team }} <span class="text-slate-500">@</span> {{ game.home_team }}
             </p>
-            <p class="text-xs text-slate-500 mt-0.5">{{ game.game_time|date:"M j, g:i A" }}</p>
+            <p class="text-xs text-slate-500 mt-0.5">{{ game.game_time|date:"M j, g:i A" }} ET</p>
           </div>
           <div class="text-right">
             {% if game.prediction %}
@@ -186,7 +173,6 @@
   </div>
 
   <!-- Top Edges for this sport -->
-  {% if_tier "PRO" %}
   {% if sport_edges %}
   <div class="bg-slate-800 border border-slate-700 rounded-xl">
     <div class="flex items-center justify-between px-5 py-4 border-b border-slate-700">
@@ -230,9 +216,6 @@
     </div>
   </div>
   {% endif %}
-  {% else_tier %}
-  {% include "dashboard/partials/upgrade_prompt.html" with tier="PRO" feature="edge alerts" %}
-  {% endif_tier %}
 
 </div>
 {% endblock %}

@@ -15,7 +15,6 @@ from analytics.models import BacktestResult, EloRating, GamePrediction
 from bankroll.models import BetOutcome, BetRecord
 from markets.models import EdgeAlert, MarketContract
 from sports.models import Game, GameStatus, InjuryReport, Sport
-from subscriptions.decorators import requires_tier
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +175,6 @@ def today_games(request):
     return render(request, "dashboard/today_games.html", context)
 
 
-@requires_tier("PRO")
 @login_required
 def edge_leaderboard(request):
     """
@@ -303,7 +301,6 @@ def sport_detail(request, sport):
     return render(request, "dashboard/sport_detail.html", context)
 
 
-@requires_tier("ELITE")
 @login_required
 def backtest_results(request):
     """

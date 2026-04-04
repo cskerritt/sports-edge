@@ -42,7 +42,6 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
-    "subscriptions.middleware.SubscriptionTierMiddleware",
 ]
 
 ROOT_URLCONF = "sports_edge.urls"

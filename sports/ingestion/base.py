@@ -252,13 +252,16 @@ class BaseIngestor:
                 else:
                     status = GameStatus.SCHEDULED
 
-                # Game time
+                # Game time — convert from UTC to Eastern
                 game_time = None
                 event_date_raw = event.get("date", "")
                 if event_date_raw:
                     try:
                         dt = datetime.datetime.fromisoformat(event_date_raw.replace("Z", "+00:00"))
-                        game_time = dt.time()
+                        from django.utils import timezone as django_tz
+                        eastern = django_tz.get_current_timezone()
+                        dt_eastern = dt.astimezone(eastern)
+                        game_time = dt_eastern.time()
                     except (ValueError, TypeError):
                         pass
 
@@ -314,7 +317,7 @@ class BaseIngestor:
                         update_kwargs["home_score"] = home_score
                     if away_score is not None:
                         update_kwargs["away_score"] = away_score
-                    if game_time and not game_obj.game_time:
+                    if game_time:
                         update_kwargs["game_time"] = game_time
                     if venue and not game_obj.venue:
                         update_kwargs["venue"] = venue
