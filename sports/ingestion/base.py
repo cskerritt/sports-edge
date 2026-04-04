@@ -14,6 +14,13 @@ ESPN_SPORT_SLUGS = {
     "NHL": "hockey/nhl",
     "MLB": "baseball/mlb",
     "SOCCER": "soccer/eng.1",
+    "NCAAM": "basketball/mens-college-basketball",
+    "NCAAF": "football/college-football",
+    "MMA": "mma/ufc",
+    "WNBA": "basketball/wnba",
+    "TENNIS": "tennis/atp",
+    "GOLF": "golf/pga",
+    "F1": "racing/f1",
 }
 
 ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports"
@@ -198,9 +205,17 @@ class BaseIngestor:
                     continue
                 comp = competitions[0]
 
-                competitors = {c["homeAway"]: c for c in comp.get("competitors", [])}
-                home_comp = competitors.get("home", {})
-                away_comp = competitors.get("away", {})
+                raw_competitors = comp.get("competitors", [])
+                # Skip events without home/away format (golf, F1, etc.)
+                competitors = {}
+                for c in raw_competitors:
+                    ha = c.get("homeAway")
+                    if ha:
+                        competitors[ha] = c
+                if "home" not in competitors or "away" not in competitors:
+                    continue
+                home_comp = competitors["home"]
+                away_comp = competitors["away"]
 
                 home_espn_id = str(home_comp.get("id", ""))
                 away_espn_id = str(away_comp.get("id", ""))

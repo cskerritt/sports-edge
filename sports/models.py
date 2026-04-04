@@ -8,6 +8,13 @@ class Sport(models.TextChoices):
     NHL = "NHL", "NHL Hockey"
     MLB = "MLB", "MLB Baseball"
     SOCCER = "SOCCER", "Soccer"
+    NCAAM = "NCAAM", "NCAA Men's Basketball"
+    NCAAF = "NCAAF", "NCAA Football"
+    MMA = "MMA", "MMA / UFC"
+    WNBA = "WNBA", "WNBA Basketball"
+    TENNIS = "TENNIS", "Tennis"
+    GOLF = "GOLF", "PGA Golf"
+    F1 = "F1", "Formula 1"
 
 
 class GameStatus(models.TextChoices):

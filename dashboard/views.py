@@ -103,7 +103,11 @@ def index(request):
 
     stats = _bet_stats(request.user)
 
-    sport_emoji_map = {"NFL": "🏈", "NBA": "🏀", "NHL": "🏒", "MLB": "⚾", "SOCCER": "⚽"}
+    sport_emoji_map = {
+        "NFL": "🏈", "NBA": "🏀", "NHL": "🏒", "MLB": "⚾", "SOCCER": "⚽",
+        "NCAAM": "🏀", "NCAAF": "🏈", "MMA": "🥊", "WNBA": "🏀",
+        "TENNIS": "🎾", "GOLF": "⛳", "NASCAR": "🏎️", "F1": "🏎️", "CRICKET": "🏏",
+    }
     sport_pills = [(code, sport_emoji_map.get(code, "")) for code in active_sports]
 
     return render(request, "dashboard/index.html", {

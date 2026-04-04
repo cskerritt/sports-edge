@@ -18,13 +18,17 @@
       <!-- Sport badge -->
       <td class="px-5 py-3.5">
         <span class="px-2 py-0.5 rounded text-xs font-bold
-          {% if game.sport == 'NFL' %}bg-blue-900/60 text-blue-300
-          {% elif game.sport == 'NBA' %}bg-orange-900/60 text-orange-300
+          {% if game.sport == 'NFL' or game.sport == 'NCAAF' %}bg-blue-900/60 text-blue-300
+          {% elif game.sport == 'NBA' or game.sport == 'NCAAM' or game.sport == 'WNBA' %}bg-orange-900/60 text-orange-300
           {% elif game.sport == 'NHL' %}bg-cyan-900/60 text-cyan-300
           {% elif game.sport == 'MLB' %}bg-red-900/60 text-red-300
-          {% elif game.sport == 'Soccer' %}bg-green-900/60 text-green-300
+          {% elif game.sport == 'SOCCER' %}bg-green-900/60 text-green-300
+          {% elif game.sport == 'MMA' %}bg-red-900/60 text-red-300
+          {% elif game.sport == 'TENNIS' %}bg-lime-900/60 text-lime-300
+          {% elif game.sport == 'GOLF' %}bg-emerald-900/60 text-emerald-300
+          {% elif game.sport == 'F1' %}bg-rose-900/60 text-rose-300
           {% else %}bg-slate-700 text-slate-300{% endif %}">
-          {% if game.sport == 'NFL' %}🏈{% elif game.sport == 'NBA' %}🏀{% elif game.sport == 'NHL' %}🏒{% elif game.sport == 'MLB' %}⚾{% elif game.sport == 'Soccer' %}⚽{% endif %}
+          {% if game.sport == 'NFL' %}🏈{% elif game.sport == 'NBA' %}🏀{% elif game.sport == 'NHL' %}🏒{% elif game.sport == 'MLB' %}⚾{% elif game.sport == 'SOCCER' %}⚽{% elif game.sport == 'NCAAM' %}🏀{% elif game.sport == 'NCAAF' %}🏈{% elif game.sport == 'MMA' %}🥊{% elif game.sport == 'WNBA' %}🏀{% elif game.sport == 'TENNIS' %}🎾{% elif game.sport == 'GOLF' %}⛳{% elif game.sport == 'F1' %}🏎️{% endif %}
           {{ game.sport }}
         </span>
       </td>

@@ -11,6 +11,13 @@ _SPORT_INGESTORS = {
     "NHL": "sports.ingestion.nhl.NHLIngestor",
     "MLB": "sports.ingestion.mlb.MLBIngestor",
     "SOCCER": "sports.ingestion.soccer.SoccerIngestor",
+    "NCAAM": "sports.ingestion.ncaam.NCAAMIngestor",
+    "NCAAF": "sports.ingestion.ncaaf.NCAAFIngestor",
+    "MMA": "sports.ingestion.mma.MMAIngestor",
+    "WNBA": "sports.ingestion.wnba.WNBAIngestor",
+    "TENNIS": "sports.ingestion.tennis.TennisIngestor",
+    "GOLF": "sports.ingestion.golf.GolfIngestor",
+    "F1": "sports.ingestion.f1.F1Ingestor",
 }
 
 
