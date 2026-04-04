@@ -193,11 +193,15 @@ class Game(models.Model):
 
     @property
     def prediction(self):
-        """Return the first ensemble prediction (set by prefetch_related to_attr='ensemble_predictions')."""
+        """Return the ensemble prediction — from prefetch cache or DB fallback."""
         preds = getattr(self, "ensemble_predictions", None)
         if preds:
             return preds[0]
-        return None
+        # Fallback: query the DB directly if not prefetched
+        from analytics.models import GamePrediction
+        return GamePrediction.objects.filter(
+            game=self, model_version="ensemble_v1"
+        ).first()
 
     @property
     def best_edge(self):

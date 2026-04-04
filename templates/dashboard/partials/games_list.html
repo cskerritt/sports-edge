@@ -6,15 +6,18 @@
       <th class="text-left px-5 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Sport</th>
       <th class="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Matchup</th>
       <th class="text-left px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Time (ET)</th>
-      <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Away Win%</th>
-      <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Home Win%</th>
+      <th class="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Pick</th>
+      <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Win%</th>
+      <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Spread</th>
       <th class="text-right px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Total</th>
+      <th class="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Confidence</th>
       <th class="text-center px-4 py-3 text-xs font-medium text-slate-400 uppercase tracking-wider">Edge</th>
     </tr>
   </thead>
   <tbody class="divide-y divide-slate-700/30">
     {% for game in today_games %}
-    <tr class="hover:bg-slate-700/30 transition-colors group">
+    <tr class="hover:bg-slate-700/30 transition-colors group
+      {% if game.prediction and game.prediction.confidence >= 0.4 %}bg-green-900/5{% endif %}">
       <!-- Sport badge -->
       <td class="px-5 py-3.5">
         <span class="px-2 py-0.5 rounded text-xs font-bold
@@ -24,9 +27,6 @@
           {% elif game.sport == 'MLB' %}bg-red-900/60 text-red-300
           {% elif game.sport == 'SOCCER' %}bg-green-900/60 text-green-300
           {% elif game.sport == 'MMA' %}bg-red-900/60 text-red-300
-          {% elif game.sport == 'TENNIS' %}bg-lime-900/60 text-lime-300
-          {% elif game.sport == 'GOLF' %}bg-emerald-900/60 text-emerald-300
-          {% elif game.sport == 'F1' %}bg-rose-900/60 text-rose-300
           {% else %}bg-slate-700 text-slate-300{% endif %}">
           {% if game.sport == 'NFL' %}🏈{% elif game.sport == 'NBA' %}🏀{% elif game.sport == 'NHL' %}🏒{% elif game.sport == 'MLB' %}⚾{% elif game.sport == 'SOCCER' %}⚽{% elif game.sport == 'NCAAM' %}🏀{% elif game.sport == 'NCAAF' %}🏈{% elif game.sport == 'MMA' %}🥊{% elif game.sport == 'WNBA' %}🏀{% elif game.sport == 'TENNIS' %}🎾{% elif game.sport == 'GOLF' %}⛳{% elif game.sport == 'F1' %}🏎️{% endif %}
           {{ game.sport }}
@@ -37,41 +37,68 @@
       <td class="px-4 py-3.5">
         <a href="{% url 'dashboard:game_detail' game.pk %}"
            class="font-medium text-slate-200 hover:text-white transition-colors group-hover:text-white">
-          <span class="text-slate-400">{{ game.away_team }}</span>
+          <span class="{% if game.prediction and game.prediction.away_win_prob > game.prediction.home_win_prob %}text-green-400 font-semibold{% else %}text-slate-400{% endif %}">{{ game.away_team }}</span>
           <span class="text-slate-500 mx-1.5">@</span>
-          <span>{{ game.home_team }}</span>
+          <span class="{% if game.prediction and game.prediction.home_win_prob > game.prediction.away_win_prob %}text-green-400 font-semibold{% else %}text-slate-300{% endif %}">{{ game.home_team }}</span>
         </a>
       </td>
 
       <!-- Time (ET) -->
       <td class="px-4 py-3.5 text-slate-400 whitespace-nowrap">
-        {{ game.game_time|date:"g:i A" }}
+        {% if game.status == 'FINAL' %}
+          <span class="text-slate-500">Final</span>
+        {% elif game.status == 'IN_PROGRESS' %}
+          <span class="text-green-400 font-medium">Live</span>
+        {% else %}
+          {{ game.game_time|date:"g:i A" }}
+        {% endif %}
       </td>
 
-      <!-- Away Win% -->
+      <!-- Model Pick (predicted winner) -->
+      <td class="px-4 py-3.5 text-center">
+        {% if game.prediction %}
+          {% if game.prediction.home_win_prob >= 0.6 %}
+            <span class="px-2 py-0.5 rounded text-xs font-bold bg-green-900/60 text-green-300">
+              {{ game.home_team.abbreviation }}
+            </span>
+          {% elif game.prediction.away_win_prob >= 0.6 %}
+            <span class="px-2 py-0.5 rounded text-xs font-bold bg-green-900/60 text-green-300">
+              {{ game.away_team.abbreviation }}
+            </span>
+          {% else %}
+            <span class="px-2 py-0.5 rounded text-xs font-medium bg-amber-900/40 text-amber-300">
+              Toss-up
+            </span>
+          {% endif %}
+        {% else %}
+          <span class="text-slate-600">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Favored team Win% -->
       <td class="px-4 py-3.5 text-right">
         {% if game.prediction %}
-          {% widthratio game.prediction.away_win_prob 1 100 as away_pct %}
-          <span class="font-mono font-medium
-            {% if game.prediction.away_win_prob >= 0.6 %}text-green-400
-            {% elif game.prediction.away_win_prob >= 0.5 %}text-slate-200
-            {% else %}text-slate-500{% endif %}">
-            {{ away_pct }}%
+          {% if game.prediction.home_win_prob >= game.prediction.away_win_prob %}
+            {% widthratio game.prediction.home_win_prob 1 100 as fav_pct %}
+          {% else %}
+            {% widthratio game.prediction.away_win_prob 1 100 as fav_pct %}
+          {% endif %}
+          <span class="font-mono font-bold
+            {% if fav_pct|add:0 >= 70 %}text-green-400
+            {% elif fav_pct|add:0 >= 55 %}text-slate-200
+            {% else %}text-amber-400{% endif %}">
+            {{ fav_pct }}%
           </span>
         {% else %}
           <span class="text-slate-600">—</span>
         {% endif %}
       </td>
 
-      <!-- Home Win% -->
-      <td class="px-4 py-3.5 text-right">
-        {% if game.prediction %}
-          {% widthratio game.prediction.home_win_prob 1 100 as home_pct %}
-          <span class="font-mono font-medium
-            {% if game.prediction.home_win_prob >= 0.6 %}text-green-400
-            {% elif game.prediction.home_win_prob >= 0.5 %}text-slate-200
-            {% else %}text-slate-500{% endif %}">
-            {{ home_pct }}%
+      <!-- Predicted Spread -->
+      <td class="px-4 py-3.5 text-right font-mono">
+        {% if game.prediction and game.prediction.predicted_spread %}
+          <span class="{% if game.prediction.predicted_spread > 0 %}text-slate-300{% else %}text-slate-400{% endif %}">
+            {% if game.prediction.predicted_spread > 0 %}+{% endif %}{{ game.prediction.predicted_spread|floatformat:1 }}
           </span>
         {% else %}
           <span class="text-slate-600">—</span>
@@ -82,6 +109,21 @@
       <td class="px-4 py-3.5 text-right font-mono text-slate-400">
         {% if game.prediction and game.prediction.predicted_total %}
           {{ game.prediction.predicted_total|floatformat:1 }}
+        {% else %}
+          <span class="text-slate-600">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Confidence -->
+      <td class="px-4 py-3.5 text-center">
+        {% if game.prediction %}
+          {% widthratio game.prediction.confidence 1 100 as conf_pct %}
+          <span class="px-2 py-0.5 rounded-full text-xs font-bold
+            {% if conf_pct|add:0 >= 50 %}bg-green-900/60 text-green-300
+            {% elif conf_pct|add:0 >= 20 %}bg-amber-900/60 text-amber-300
+            {% else %}bg-slate-700/60 text-slate-400{% endif %}">
+            {{ conf_pct }}%
+          </span>
         {% else %}
           <span class="text-slate-600">—</span>
         {% endif %}
@@ -108,6 +150,6 @@
 <div class="py-16 text-center">
   <div class="text-5xl mb-3">🏟️</div>
   <p class="text-slate-400 font-medium">No games scheduled for today</p>
-  <p class="text-slate-600 text-sm mt-1">Hit "Update Data" to fetch the latest games</p>
+  <p class="text-slate-600 text-sm mt-1">Hit "Update All" to fetch the latest games</p>
 </div>
 {% endif %}
