@@ -65,6 +65,8 @@ def index(request):
         recent_bets   – the user's 5 most recent BetRecords.
         stats         – dict: total_bets, win_rate, total_pnl.
     """
+    import datetime
+
     today = timezone.localdate()
     active_sports = _get_user_sports(request)
 
@@ -85,6 +87,22 @@ def index(request):
             )
         )
         .order_by("game_time")
+    )
+
+    # Upcoming games (next 7 days, excluding today)
+    upcoming_games = (
+        Game.objects
+        .filter(
+            game_date__gt=today,
+            game_date__lte=today + datetime.timedelta(days=7),
+            sport__in=active_sports,
+        )
+        .exclude(status__in=[GameStatus.POSTPONED, GameStatus.CANCELLED])
+        .select_related("home_team", "away_team")
+        .prefetch_related(
+            Prefetch("predictions", queryset=predictions_qs, to_attr="ensemble_predictions")
+        )
+        .order_by("game_date", "game_time")[:20]
     )
 
     top_edges = (
@@ -113,6 +131,7 @@ def index(request):
     return render(request, "dashboard/index.html", {
         "today_games": today_games,
         "today_games_count": today_games.count(),
+        "upcoming_games": upcoming_games,
         "open_alerts_count": top_edges.count(),
         "top_edges": top_edges,
         "recent_bets": recent_bets,
@@ -481,18 +500,34 @@ def refresh_data(request):
         _refresh_running = True
         try:
             from django.core.management import call_command
+            import datetime
             import io
             import logging
 
             logger = logging.getLogger("dashboard.refresh")
             out = io.StringIO()
 
+            # Run the full pipeline (scores, Elo, predictions, markets, edges)
             args = []
             if mode == "full":
                 args.append("--full-ingest")
             logger.info("Dashboard refresh started (mode=%s)", mode)
             call_command("morning_update", *args, stdout=out, stderr=out)
-            logger.info("Dashboard refresh completed: %s", out.getvalue()[-200:])
+
+            # Also ingest the next 3 days of games for all sports
+            from sports.management.commands.ingest_all import _SPORT_INGESTORS, _load_ingestor
+            today = timezone.localdate()
+            for days_ahead in range(1, 4):
+                future_date = today + datetime.timedelta(days=days_ahead)
+                for sport, dotted in _SPORT_INGESTORS.items():
+                    try:
+                        Cls = _load_ingestor(dotted)
+                        ing = Cls()
+                        ing.ingest_scores(game_date=future_date)
+                    except Exception:
+                        pass
+
+            logger.info("Dashboard refresh completed (including upcoming games)")
         except Exception:
             import logging
             logging.getLogger("dashboard.refresh").exception("Dashboard refresh failed")

@@ -226,7 +226,7 @@ class BaseIngestor:
                 home_abbr = ESPN_ABBR_ALIASES.get(home_abbr, home_abbr)
                 away_abbr = ESPN_ABBR_ALIASES.get(away_abbr, away_abbr)
 
-                # Resolve teams
+                # Resolve teams — auto-create if not found
                 home_team = (
                     Team.objects.filter(sport=self.sport, espn_id=home_espn_id).first()
                     or Team.objects.filter(sport=self.sport, abbreviation=home_abbr).first()
@@ -236,11 +236,36 @@ class BaseIngestor:
                     or Team.objects.filter(sport=self.sport, abbreviation=away_abbr).first()
                 )
 
-                if not home_team or not away_team:
-                    self.logger.debug(
-                        "Could not resolve teams for ESPN event %s (%s vs %s)",
-                        espn_event_id, away_abbr, home_abbr,
+                # Auto-create teams from ESPN data if they don't exist
+                if not home_team and home_abbr:
+                    home_td = home_comp.get("team", {})
+                    home_team, created = Team.objects.get_or_create(
+                        sport=self.sport, abbreviation=home_abbr,
+                        defaults={
+                            "espn_id": home_espn_id,
+                            "name": home_td.get("shortDisplayName", home_td.get("displayName", home_abbr)),
+                            "city": home_td.get("location", ""),
+                            "is_active": True,
+                        },
                     )
+                    if created:
+                        self.logger.info("Auto-created team: %s %s", self.sport, home_abbr)
+
+                if not away_team and away_abbr:
+                    away_td = away_comp.get("team", {})
+                    away_team, created = Team.objects.get_or_create(
+                        sport=self.sport, abbreviation=away_abbr,
+                        defaults={
+                            "espn_id": away_espn_id,
+                            "name": away_td.get("shortDisplayName", away_td.get("displayName", away_abbr)),
+                            "city": away_td.get("location", ""),
+                            "is_active": True,
+                        },
+                    )
+                    if created:
+                        self.logger.info("Auto-created team: %s %s", self.sport, away_abbr)
+
+                if not home_team or not away_team:
                     result["errors"] += 1
                     continue
 
