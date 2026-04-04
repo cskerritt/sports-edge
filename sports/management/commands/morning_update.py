@@ -76,7 +76,7 @@ class Command(BaseCommand):
         self.stdout.write("")
 
         # ------------------------------------------------------------------
-        # Step 1: Ingest sports data
+        # Step 1: Ingest sports data (teams, scores, injuries)
         # ------------------------------------------------------------------
         self._step("1. Ingesting sports data...")
         try:
@@ -93,6 +93,33 @@ class Command(BaseCommand):
             errors.append(f"ingest_all: {exc}")
             self.stderr.write(self.style.ERROR(f"  Ingest failed: {exc}"))
             logger.exception("morning_update: ingest_all failed")
+
+        # ------------------------------------------------------------------
+        # Step 1b: Ingest team stats (needed for predictions)
+        # ------------------------------------------------------------------
+        self._step("1b. Ingesting team stats...")
+        try:
+            from sports.ingestion.nba import NBAIngestor
+
+            sport_ingestors = [NBAIngestor]
+            for cls in sport_ingestors:
+                if sport_filter and cls.sport != sport_filter:
+                    continue
+                try:
+                    ing = cls()
+                    result = ing.ingest_team_stats(season)
+                    self.stdout.write(
+                        f"    {cls.sport} stats: created={result['created']} "
+                        f"updated={result['updated']} errors={result['errors']}"
+                    )
+                except Exception as exc:
+                    errors.append(f"team_stats_{cls.sport}: {exc}")
+                    self.stderr.write(
+                        self.style.ERROR(f"    {cls.sport} stats failed: {exc}")
+                    )
+        except Exception as exc:
+            errors.append(f"team_stats: {exc}")
+            logger.exception("morning_update: team_stats failed")
 
         # ------------------------------------------------------------------
         # Step 2: Update Elo ratings

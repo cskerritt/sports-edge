@@ -461,8 +461,8 @@ class NBAIngestor(BaseIngestor):
             time.sleep(NBA_API_SLEEP)
             base_stats = leaguedashteamstats.LeagueDashTeamStats(
                 season=season_str,
-                measure_type_simple_nullable="Base",
-                per_mode_simple="PerGame",
+                measure_type_detailed_defense="Base",
+                per_mode_detailed="PerGame",
             )
             base_df = base_stats.get_data_frames()[0]
         except Exception as exc:
@@ -475,8 +475,8 @@ class NBAIngestor(BaseIngestor):
             time.sleep(NBA_API_SLEEP)
             adv_stats = leaguedashteamstats.LeagueDashTeamStats(
                 season=season_str,
-                measure_type_simple_nullable="Advanced",
-                per_mode_simple="PerGame",
+                measure_type_detailed_defense="Advanced",
+                per_mode_detailed="PerGame",
             )
             adv_df = adv_stats.get_data_frames()[0]
         except Exception as exc:

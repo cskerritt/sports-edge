@@ -42,7 +42,7 @@ def cron_update(request):
     # The web process stays alive while the thread runs.
     def _run():
         try:
-            args = ["--skip-markets"]
+            args = []
             if full_ingest:
                 args.append("--full-ingest")
             if sport:

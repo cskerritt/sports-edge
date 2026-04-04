@@ -13,18 +13,19 @@
       <p class="text-slate-400 text-sm mt-0.5">{% now "l, F j, Y" %} &mdash; Coinbase Prediction Markets</p>
     </div>
     <div class="flex items-center gap-3">
-      <!-- Refresh data button -->
-      <div x-data="{ loading: false }">
+      <!-- Refresh data buttons -->
+      <div x-data="{ loading: false, mode: '' }" class="flex items-center gap-2">
         <form method="post" action="{% url 'dashboard:refresh_data' %}"
-              @submit="loading = true; setTimeout(() => { loading = false; location.reload(); }, 8000)">
+              @submit="loading = true; setTimeout(() => { loading = false; location.reload(); }, 45000)">
           {% csrf_token %}
+          <input type="hidden" name="mode" value="quick">
           <button type="submit"
                   :disabled="loading"
                   class="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-wait">
             <svg class="w-4 h-4" :class="loading && 'animate-spin'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            <span x-text="loading ? 'Updating...' : 'Update Data'"></span>
+            <span x-text="loading ? 'Running pipeline...' : 'Update All'"></span>
           </button>
         </form>
       </div>

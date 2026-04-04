@@ -66,6 +66,8 @@ class Command(BaseCommand):
                 ingestor = IngestorClass()
 
                 if scores_only:
+                    # Always ingest teams first (needed for ESPN ID backfill)
+                    ingestor.ingest_teams()
                     result = ingestor.ingest_scores()
                 else:
                     result = ingestor.run_full_ingest(season)

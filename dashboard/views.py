@@ -457,7 +457,11 @@ _refresh_running = False
 @login_required
 @require_POST
 def refresh_data(request):
-    """Manually trigger data ingestion from the dashboard."""
+    """Manually trigger the full data pipeline from the dashboard.
+
+    Runs: scores + injuries + Elo + predictions + Kalshi markets + edges.
+    Uses the morning_update management command which orchestrates everything.
+    """
     global _refresh_running
 
     if _refresh_running:
@@ -466,28 +470,28 @@ def refresh_data(request):
         messages.warning(request, "A data refresh is already running. Please wait.")
         return redirect("dashboard:index")
 
-    sport_filter = request.POST.get("sport", "").upper()
+    mode = request.POST.get("mode", "quick")  # "quick" or "full"
 
     def _run():
         global _refresh_running
         _refresh_running = True
         try:
-            from sports.ingestion.nba import NBAIngestor
-            from sports.ingestion.nfl import NFLIngestor
-            from sports.ingestion.nhl import NHLIngestor
-            from sports.ingestion.mlb import MLBIngestor
+            from django.core.management import call_command
+            import io
+            import logging
 
-            ingestors = [NBAIngestor, NFLIngestor, NHLIngestor, MLBIngestor]
+            logger = logging.getLogger("dashboard.refresh")
+            out = io.StringIO()
 
-            for cls in ingestors:
-                if sport_filter and cls.sport != sport_filter:
-                    continue
-                try:
-                    ing = cls()
-                    ing.ingest_teams()
-                    ing.ingest_scores()
-                except Exception:
-                    pass  # logged by ingestor
+            args = []
+            if mode == "full":
+                args.append("--full-ingest")
+            logger.info("Dashboard refresh started (mode=%s)", mode)
+            call_command("morning_update", *args, stdout=out, stderr=out)
+            logger.info("Dashboard refresh completed: %s", out.getvalue()[-200:])
+        except Exception:
+            import logging
+            logging.getLogger("dashboard.refresh").exception("Dashboard refresh failed")
         finally:
             _refresh_running = False
 
@@ -495,9 +499,13 @@ def refresh_data(request):
     thread.start()
 
     if _is_htmx(request):
-        return JsonResponse({"status": "started"})
+        return JsonResponse({"status": "started", "mode": mode})
 
-    messages.success(request, "Data refresh started! Games will appear in a few seconds. Reload the page shortly.")
+    messages.success(
+        request,
+        "Full pipeline started — scores, predictions, markets, and edges. "
+        "Reload in 30-60 seconds to see results."
+    )
     return redirect("dashboard:index")
 
 
