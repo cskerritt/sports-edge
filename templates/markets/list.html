@@ -9,9 +9,15 @@
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-white">Markets</h1>
-      <p class="text-slate-400 text-sm mt-0.5">All prediction market contracts</p>
+      <p class="text-slate-400 text-sm mt-0.5">All prediction market contracts sorted by date</p>
     </div>
-    <div class="text-xs text-slate-500">{{ total_count|default:0 }} contracts</div>
+    <div class="flex items-center gap-3">
+      <a href="{% url 'markets:list' %}{% if not show_all %}?show=all{% endif %}"
+         class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors {% if show_all %}bg-amber-600 text-white{% else %}bg-slate-700 text-slate-300 hover:bg-slate-600{% endif %}">
+        {% if show_all %}Showing All{% else %}Show Resolved{% endif %}
+      </a>
+      <span class="text-xs text-slate-500">{{ total_count|default:0 }} contracts</span>
+    </div>
   </div>
 
   <!-- Filter pills -->
@@ -97,7 +103,16 @@
               </span>
             </td>
             <td class="px-4 py-3.5 text-slate-400 text-xs whitespace-nowrap">
-              {{ contract.game.game_time|date:"M j, g:i A"|default:"—" }}
+              {% if contract.game and contract.game.game_time %}
+                {{ contract.game.game_date|date:"M j" }}, {{ contract.game.game_time|date:"g:i A" }}
+              {% elif contract.game_date %}
+                {{ contract.game_date|date:"M j, Y" }}
+              {% else %}
+                —
+              {% endif %}
+              {% if contract.is_resolved %}
+                <span class="ml-1 text-slate-600">(settled)</span>
+              {% endif %}
             </td>
             <td class="px-4 py-3.5 text-right font-mono font-medium text-slate-200">
               ${{ contract.latest_yes_price|floatformat:2|default:"—" }}

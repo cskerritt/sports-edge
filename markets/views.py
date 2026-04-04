@@ -82,20 +82,21 @@ def markets_list(request):
     """
     active_sports = _active_sports_for_user(request.user)
 
-    # Base queryset: active, unresolved, within the user's sport prefs
+    # Base queryset: all contracts within the user's sport prefs, sorted by
+    # game date ascending (soonest first) with resolved contracts at the end.
+    show_all = request.GET.get("show") == "all"
     qs = (
-        MarketContract.objects.filter(
-            is_active=True,
-            is_resolved=False,
-            sport__in=active_sports,
-        )
+        MarketContract.objects.filter(sport__in=active_sports)
         .select_related("game__home_team", "game__away_team")
         .annotate(
             latest_yes_price=_latest_price_subquery(),
             latest_mid_price=_mid_price_subquery(),
         )
-        .order_by("-game_date", "sport", "title")
+        .order_by("is_resolved", "game_date", "sport", "title")
     )
+
+    if not show_all:
+        qs = qs.filter(is_active=True)
 
     # Optional filters from query string
     sport_filter = request.GET.get("sport", "").upper()
@@ -127,6 +128,7 @@ def markets_list(request):
         "selected_contract_type": contract_type_filter,
         "contract_type_choices": MarketContract._meta.get_field("contract_type").choices,
         "total_count": len(contracts),
+        "show_all": show_all,
     }
 
     if request.htmx:

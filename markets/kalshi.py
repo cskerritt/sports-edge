@@ -22,6 +22,216 @@ logger = logging.getLogger("markets.kalshi")
 
 BASE_URL = "https://api.elections.kalshi.com/trade-api/v2"
 
+# ---------------------------------------------------------------------------
+# Kalshi abbreviated city → full team name, per sport.
+# Kalshi titles use patterns like "New York M", "Los Angeles D", "Chicago C".
+# ---------------------------------------------------------------------------
+
+KALSHI_TEAM_MAP: dict[str, dict[str, str]] = {
+    "MLB": {
+        "New York M": "New York Mets",
+        "New York Y": "New York Yankees",
+        "Los Angeles D": "Los Angeles Dodgers",
+        "Los Angeles A": "Los Angeles Angels",
+        "Chicago C": "Chicago Cubs",
+        "Chicago WS": "Chicago White Sox",
+        "A's": "Oakland Athletics",
+        "Kansas City": "Kansas City Royals",
+        "Cleveland": "Cleveland Guardians",
+        "Cincinnati": "Cincinnati Reds",
+        "Miami": "Miami Marlins",
+        "Milwaukee": "Milwaukee Brewers",
+        "Boston": "Boston Red Sox",
+        "San Diego": "San Diego Padres",
+        "Pittsburgh": "Pittsburgh Pirates",
+        "St. Louis": "St. Louis Cardinals",
+        "Washington": "Washington Nationals",
+        "Toronto": "Toronto Blue Jays",
+        "Detroit": "Detroit Tigers",
+        "Minnesota": "Minnesota Twins",
+        "Baltimore": "Baltimore Orioles",
+        "Seattle": "Seattle Mariners",
+        "Texas": "Texas Rangers",
+        "Colorado": "Colorado Rockies",
+        "Philadelphia": "Philadelphia Phillies",
+        "San Francisco": "San Francisco Giants",
+        "Atlanta": "Atlanta Braves",
+        "Arizona": "Arizona Diamondbacks",
+        "Houston": "Houston Astros",
+        "Tampa Bay": "Tampa Bay Rays",
+    },
+    "NBA": {
+        "Los Angeles L": "Los Angeles Lakers",
+        "Los Angeles C": "LA Clippers",
+        "New York": "New York Knicks",
+        "Indiana": "Indiana Pacers",
+        "Cleveland": "Cleveland Cavaliers",
+        "Utah": "Utah Jazz",
+        "Oklahoma City": "Oklahoma City Thunder",
+        "Orlando": "Orlando Magic",
+        "New Orleans": "New Orleans Pelicans",
+        "Charlotte": "Charlotte Hornets",
+        "Minnesota": "Minnesota Timberwolves",
+        "Dallas": "Dallas Mavericks",
+        "Detroit": "Detroit Pistons",
+        "Philadelphia": "Philadelphia 76ers",
+        "Washington": "Washington Wizards",
+        "Brooklyn": "Brooklyn Nets",
+        "Toronto": "Toronto Raptors",
+        "Boston": "Boston Celtics",
+        "Phoenix": "Phoenix Suns",
+        "Chicago": "Chicago Bulls",
+        "Memphis": "Memphis Grizzlies",
+        "Milwaukee": "Milwaukee Bucks",
+        "Sacramento": "Sacramento Kings",
+        "Houston": "Houston Rockets",
+        "Miami": "Miami Heat",
+        "San Antonio": "San Antonio Spurs",
+        "Denver": "Denver Nuggets",
+        "Atlanta": "Atlanta Hawks",
+        "Portland": "Portland Trail Blazers",
+        "Golden State": "Golden State Warriors",
+    },
+    "NHL": {
+        "New York R": "New York Rangers",
+        "New York I": "New York Islanders",
+        "Vegas": "Las Vegas Golden Knights",
+        "Carolina": "Carolina Hurricanes",
+        "Ottawa": "Ottawa Senators",
+        "New Jersey": "New Jersey Devils",
+        "Montreal": "Montreal Canadiens",
+        "Washington": "Washington Capitals",
+        "St. Louis": "St. Louis Blues",
+        "Colorado": "Colorado Avalanche",
+        "Boston": "Boston Bruins",
+        "Tampa Bay": "Tampa Bay Lightning",
+        "Florida": "Florida Panthers",
+        "Pittsburgh": "Pittsburgh Penguins",
+        "Winnipeg": "Winnipeg Jets",
+        "Columbus": "Columbus Blue Jackets",
+        "Toronto": "Toronto Maple Leafs",
+        "Los Angeles": "Los Angeles Kings",
+        "Utah": "Utah Hockey Club",
+        "Vancouver": "Vancouver Canucks",
+        "Buffalo": "Buffalo Sabres",
+        "Chicago": "Chicago Blackhawks",
+        "Seattle": "Seattle Kraken",
+        "Nashville": "Nashville Predators",
+        "San Jose": "San Jose Sharks",
+        "Calgary": "Calgary Flames",
+        "Anaheim": "Anaheim Ducks",
+        "Edmonton": "Edmonton Oilers",
+        "Minnesota": "Minnesota Wild",
+        "Detroit": "Detroit Red Wings",
+        "Philadelphia": "Philadelphia Flyers",
+        "Dallas": "Dallas Stars",
+    },
+    "NFL": {
+        "Kansas City": "Kansas City Chiefs",
+        "New York G": "New York Giants",
+        "New York J": "New York Jets",
+        "Los Angeles R": "Los Angeles Rams",
+        "Los Angeles C": "Los Angeles Chargers",
+        "Dallas": "Dallas Cowboys",
+        "Washington": "Washington Commanders",
+        "Denver": "Denver Broncos",
+        "Detroit": "Detroit Lions",
+        "Minnesota": "Minnesota Vikings",
+        "Baltimore": "Baltimore Ravens",
+        "Green Bay": "Green Bay Packers",
+        "Houston": "Houston Texans",
+        "Seattle": "Seattle Seahawks",
+        "Carolina": "Carolina Panthers",
+        "Jacksonville": "Jacksonville Jaguars",
+        "Indianapolis": "Indianapolis Colts",
+        "New Orleans": "New Orleans Saints",
+        "Tennessee": "Tennessee Titans",
+        "Arizona": "Arizona Cardinals",
+        "Cincinnati": "Cincinnati Bengals",
+        "New England": "New England Patriots",
+        "Tampa Bay": "Tampa Bay Buccaneers",
+        "Miami": "Miami Dolphins",
+        "Pittsburgh": "Pittsburgh Steelers",
+        "Cleveland": "Cleveland Browns",
+        "Las Vegas": "Las Vegas Raiders",
+        "Philadelphia": "Philadelphia Eagles",
+        "Buffalo": "Buffalo Bills",
+        "Chicago": "Chicago Bears",
+        "San Francisco": "San Francisco 49ers",
+        "Atlanta": "Atlanta Falcons",
+    },
+}
+
+
+def _resolve_kalshi_team(raw_name: str, sport: str) -> str:
+    """Resolve a Kalshi abbreviated team name to the full team name.
+
+    Falls back to the original name if no mapping is found.
+    """
+    sport_map = KALSHI_TEAM_MAP.get(sport, {})
+    return sport_map.get(raw_name, raw_name)
+
+
+def _parse_kalshi_title(title: str, sport: str) -> tuple[str, str]:
+    """Parse a Kalshi title like 'Kansas City vs Cleveland Winner?' into two
+    resolved full team names.
+
+    Returns (team_a, team_b) as full team names. Uses 'vs' for MLB and 'at'
+    for NBA/NHL.
+    """
+    # Strip trailing " Winner?" or similar
+    clean = title.replace(" Winner?", "").replace(" winner?", "").strip()
+
+    # Split on " vs " (MLB) or " at " (NBA/NHL)
+    if " vs " in clean:
+        parts = clean.split(" vs ", 1)
+    elif " at " in clean:
+        parts = clean.split(" at ", 1)
+    else:
+        return clean, ""
+
+    if len(parts) != 2:
+        return clean, ""
+
+    team_a = _resolve_kalshi_team(parts[0].strip(), sport)
+    team_b = _resolve_kalshi_team(parts[1].strip(), sport)
+    return team_a, team_b
+
+
+def _build_clean_title(team_a: str, team_b: str, sport: str) -> str:
+    """Build a clean contract title from two resolved team names."""
+    sep = "vs" if sport == "MLB" else "at"
+    return f"{team_a} {sep} {team_b} Winner?"
+
+
+def _team_matches_game(search_names: set[str], team) -> bool:
+    """Check if any of the search names match a Team record.
+
+    Uses exact matching for abbreviations (to avoid 'ORL' matching 'ORLEANS')
+    and substring matching only for longer names (city, name, full_name).
+    """
+    if not team:
+        return False
+
+    abbr = (team.abbreviation or "").upper()
+    long_ids = set()
+    for val in [team.name, team.city, team.full_name]:
+        if val:
+            long_ids.add(val.upper())
+
+    for sn in search_names:
+        if not sn:
+            continue
+        # Exact match on abbreviation
+        if abbr and sn == abbr:
+            return True
+        # For longer identifiers: check if either contains the other
+        for ident in long_ids:
+            if ident == sn or ident in sn or sn in ident:
+                return True
+    return False
+
+
 # Sports game-winner series tickers → sport code
 GAME_SERIES: dict[str, str] = {
     "KXMLBGAME": "MLB",
@@ -193,9 +403,9 @@ class KalshiPredictionClient:
     def _try_link_game(self, market: dict, sport: str) -> int | None:
         """Try to link a Kalshi market to a Game record by date and team names.
 
-        Checks team name, abbreviation, AND city against the market title and
-        yes/no subtitles. Uses ``expected_expiration_time`` (closer to actual
-        game time) with a ±2 day search window.
+        Requires BOTH teams from the market title to match a game's home and
+        away teams. Uses ``expected_expiration_time`` (closer to actual game
+        time) with a ±1 day search window.
 
         Returns the Game pk if found, else None.
         """
@@ -217,14 +427,23 @@ class KalshiPredictionClient:
         if not game_date:
             return None
 
-        yes_team = market.get("yes_sub_title", "")
-        no_team = market.get("no_sub_title", "")
+        # Parse the two team names from the Kalshi title
         title = market.get("title", "")
-        checks = [yes_team.upper(), no_team.upper(), title.upper()]
+        team_a, team_b = _parse_kalshi_title(title, sport)
+
+        # Also use yes/no subtitles as additional identifiers
+        yes_team = market.get("yes_sub_title", "").upper()
+        no_team = market.get("no_sub_title", "").upper()
+
+        # Build search text combining title teams + subtitles
+        search_names = set()
+        for name in [team_a, team_b, yes_team, no_team]:
+            if name:
+                search_names.add(name.upper())
 
         from datetime import timedelta
-        window_start = game_date - timedelta(days=2)
-        window_end = game_date + timedelta(days=2)
+        window_start = game_date - timedelta(days=1)
+        window_end = game_date + timedelta(days=1)
 
         qs = Game.objects.filter(
             sport=sport,
@@ -232,24 +451,11 @@ class KalshiPredictionClient:
         ).select_related("home_team", "away_team")
 
         for game in qs:
-            # Build all possible identifiers for each team
-            home_ids = set()
-            away_ids = set()
-            for team, ids in [(game.home_team, home_ids), (game.away_team, away_ids)]:
-                if not team:
-                    continue
-                if team.name:
-                    ids.add(team.name.upper())
-                if team.abbreviation:
-                    ids.add(team.abbreviation.upper())
-                if team.city:
-                    ids.add(team.city.upper())
+            home_matched = _team_matches_game(search_names, game.home_team)
+            away_matched = _team_matches_game(search_names, game.away_team)
 
-            for check in checks:
-                if any(ident in check for ident in home_ids if ident):
-                    return game.pk
-                if any(ident in check for ident in away_ids if ident):
-                    return game.pk
+            if home_matched and away_matched:
+                return game.pk
 
         return None
 
@@ -340,7 +546,13 @@ class KalshiPredictionClient:
                 skipped += 1
                 continue
 
-            title = m.get("title", ticker)
+            raw_title = m.get("title", ticker)
+            # Resolve abbreviated city names to full team names
+            team_a, team_b = _parse_kalshi_title(raw_title, sport)
+            if team_b:
+                title = _build_clean_title(team_a, team_b, sport)
+            else:
+                title = raw_title
             external_id = f"KALSHI:{ticker}"
 
             # Parse game date — use expected_expiration_time (closest to actual game)
