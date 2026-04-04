@@ -217,7 +217,7 @@ class Game(models.Model):
 class InjuryReport(models.Model):
     player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name="injuries")
     game = models.ForeignKey(Game, on_delete=models.SET_NULL, null=True, blank=True, related_name="injuries")
-    report_date = models.DateField(default=timezone.now)
+    report_date = models.DateField(default=timezone.localdate)
     status = models.CharField(max_length=20, choices=InjuryStatus.choices)
     body_part = models.CharField(max_length=50, blank=True)
     description = models.TextField(blank=True)

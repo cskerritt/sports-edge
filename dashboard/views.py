@@ -128,6 +128,10 @@ def index(request):
     }
     sport_pills = [(code, sport_emoji_map.get(code, "")) for code in active_sports]
 
+    active_bets_count = BetRecord.objects.filter(
+        user=request.user, outcome=BetOutcome.PENDING
+    ).count()
+
     return render(request, "dashboard/index.html", {
         "today_games": today_games,
         "today_games_count": today_games.count(),
@@ -136,7 +140,10 @@ def index(request):
         "top_edges": top_edges,
         "recent_bets": recent_bets,
         "stats": stats,
+        "active_bets_count": active_bets_count,
+        "total_pnl": stats["total_pnl"],
         "sport_pills": sport_pills,
+        "active_sport": "",
     })
 
 
@@ -184,11 +191,19 @@ def today_games(request):
         .order_by("sport", "game_time")
     )
 
+    sport_emoji_map = {
+        "NFL": "🏈", "NBA": "🏀", "NHL": "🏒", "MLB": "⚾", "SOCCER": "⚽",
+        "NCAAM": "🏀", "NCAAF": "🏈", "MMA": "🥊", "WNBA": "🏀",
+        "TENNIS": "🎾", "GOLF": "⛳", "F1": "🏎️",
+    }
+
     context = {
         "games": games,
         "today_games": games,
         "active_sports": active_sports,
         "sport_filter": sport_filter,
+        "active_sport": sport_filter,
+        "sport_filters": [(code, sport_emoji_map.get(code, "")) for code in active_sports],
         "sport_choices": Sport.choices,
         "today": today,
     }
@@ -430,7 +445,10 @@ def game_detail(request, pk):
     from markets.models import MarketPrice
     from django.db.models import Max
 
-    contract_ids = list(contracts.values_list("id", flat=True))
+    # Evaluate queryset once so prefetch_related (open_alerts) resolves
+    contracts = list(contracts)
+    contract_ids = [c.id for c in contracts]
+
     latest_price_ids = (
         MarketPrice.objects
         .filter(contract_id__in=contract_ids)
@@ -449,7 +467,7 @@ def game_detail(request, pk):
         contracts_with_prices.append({
             "contract": contract,
             "latest_price": latest_prices_map.get(contract.id),
-            "open_alerts": contract.open_alerts,  # populated by prefetch_related above
+            "open_alerts": getattr(contract, "open_alerts", []),
         })
 
     # Pick the ensemble prediction for the template's single-prediction display

@@ -13,10 +13,10 @@ Usage:
 
 import logging
 import time
-from datetime import date
 
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 logger = logging.getLogger("seed_initial_data")
 
@@ -45,7 +45,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         sport_filter = options["sport"]
-        season = options["season"] or date.today().year
+        season = options["season"] or timezone.localdate().year
         skip_markets = options["skip_markets"]
 
         start = time.time()
@@ -58,7 +58,7 @@ class Command(BaseCommand):
         # Most sports seasons span two calendar years (e.g. NFL 2025 season
         # plays into early 2026).  Try the current year first, then previous.
         seasons_to_try = [season]
-        if season == date.today().year:
+        if season == timezone.localdate().year:
             seasons_to_try.append(season - 1)
 
         # ------------------------------------------------------------------

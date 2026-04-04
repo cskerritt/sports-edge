@@ -1,7 +1,7 @@
 import logging
-from datetime import date
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        season = options["season"] or date.today().year
+        season = options["season"] or timezone.localdate().year
         scores_only = options["scores_only"]
         sport_filter = options["sport"]
 

@@ -2,6 +2,7 @@ import logging
 from datetime import date
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class Command(BaseCommand):
         from sports.ingestion.nfl import NFLIngestor
 
         ingestor = NFLIngestor()
-        season = options["season"] or date.today().year
+        season = options["season"] or timezone.localdate().year
 
         try:
             if options["teams_only"]:
